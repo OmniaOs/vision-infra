@@ -69,7 +69,7 @@ services:
       # LLM programático vía gateway (API key de pago — NO suscripciones/ToS)
       - HERMES_LLM_BASE_URL=${HERMES_LLM_BASE_URL}
       - HERMES_LLM_API_KEY=${HERMES_LLM_API_KEY}
-      - HERMES_LLM_MODEL=${HERMES_LLM_MODEL:-claude-sonnet}
+      - HERMES_LLM_MODEL=${HERMES_LLM_MODEL:-glm}
       # Repos a observar y destino de propuestas (PR de aprobación)
       - HERMES_REPOS=${HERMES_REPOS}
       - HERMES_PROPOSALS_REMOTE=${HERMES_PROPOSALS_REMOTE}

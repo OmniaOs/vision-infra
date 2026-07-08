@@ -86,7 +86,14 @@ async function cycle() {
 }
 
 async function main() {
-  await cycle();
+  // Un error de ciclo NO debe tumbar el daemon (evita crash-loop); en --loop se
+  // reintenta al siguiente intervalo. En modo one-shot sí propaga el error.
+  try {
+    await cycle();
+  } catch (e) {
+    console.error('Hermes cycle error:', e.message);
+    if (!has('--loop')) throw e;
+  }
   if (has('--loop')) {
     const interval = Number(process.env.HERMES_INTERVAL || 86400) * 1000;
     // Daemon simple: el intervalo lo controla Coolify/env; sin Date.now en lógica.
