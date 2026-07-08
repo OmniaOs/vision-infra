@@ -6,7 +6,7 @@ Gateway para **cargas programáticas** (CI, agentes batch, servicios) con **API 
 
 ## Deploy (Coolify / Hetzner)
 
-1. `cp .env.example .env` y rellena `LITELLM_MASTER_KEY`, `POSTGRES_PASSWORD` y las API keys de pago.
+1. `cp .env.example .env` y rellena `LITELLM_MASTER_KEY`, `POSTGRES_PASSWORD` y `ZAI_API_KEY` (GLM 5.2).
 2. `docker compose up -d`
 3. UI de uso: `http://<host>:4000/ui` · endpoint OpenAI-compatible: `http://<host>:4000`.
 4. En Coolify: nuevo recurso "Docker Compose", pega este repo, define las env vars como secrets.
@@ -18,7 +18,7 @@ Gateway para **cargas programáticas** (CI, agentes batch, servicios) con **API 
 curl -X POST http://<host>:4000/key/generate \
   -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"key_alias":"gibran","max_budget":50,"budget_duration":"30d","models":["claude-sonnet","gemini-pro","kimi-k2"]}'
+  -d '{"key_alias":"gibran","max_budget":50,"budget_duration":"30d","models":["glm"]}'
 ```
 
 Cada dev/servicio usa su virtual key; LiteLLM registra tokens y costo por key en Postgres. Repórtalo con `/global/spend/report` o la UI.
@@ -29,7 +29,7 @@ Cada dev/servicio usa su virtual key; LiteLLM registra tokens y costo por key en
 curl http://<host>:4000/v1/chat/completions \
   -H "Authorization: Bearer <virtual-key-del-dev>" \
   -H "Content-Type: application/json" \
-  -d '{"model":"claude-sonnet","messages":[{"role":"user","content":"hola"}]}'
+  -d '{"model":"glm","messages":[{"role":"user","content":"hola"}]}'
 ```
 
 ## Conexión con el Metrics Hub

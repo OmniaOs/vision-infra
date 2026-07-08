@@ -1,28 +1,27 @@
 # Configuración del gateway LiteLLM de Omnia.
-# Providers vía API keys de pago (NO suscripciones). Ajusta los model ids exactos.
+# Único proveedor: GLM 5.2 (z.ai), API de pago — para cargas PROGRAMÁTICAS
+# (Hermes, CI, agentes batch) y BYOK. El trabajo interactivo NO pasa por aquí:
+# cada dev usa su seat de Claude Team en Claude Code (flat-rate, sin API key).
 model_list:
-  # --- Anthropic (API de pago, NO el token de Claude Max) ---
-  - model_name: claude-opus
+  # --- GLM 5.2 (z.ai) — plan + ejecución ---
+  # LiteLLM tiene provider nativo `zai/`. Usa ZAI_API_KEY.
+  - model_name: glm            # alias que piden los clientes (Kilo/Hermes)
     litellm_params:
-      model: anthropic/claude-opus-4-8
-      api_key: os.environ/ANTHROPIC_API_KEY
-  - model_name: claude-sonnet
-    litellm_params:
-      model: anthropic/claude-sonnet-5
-      api_key: os.environ/ANTHROPIC_API_KEY
+      model: zai/glm-5.2
+      api_key: os.environ/ZAI_API_KEY
+      # Coding Plan de z.ai: descomenta el api_base del endpoint /coding/ (es más
+      # barato por volumen). Pago-por-token normal: deja el default (api/paas/v4).
+      # api_base: https://api.z.ai/api/coding/paas/v4
 
-  # --- Google Gemini (API de pago, NO el plan Ultra) ---
-  - model_name: gemini-pro
+  # Alias explícitos por si quieres separar tiers apuntando al mismo modelo:
+  - model_name: glm-planner
     litellm_params:
-      model: gemini/gemini-2.5-pro
-      api_key: os.environ/GEMINI_API_KEY
-
-  # --- Kimi / Moonshot (OpenAI-compatible; confirma el model id en tu cuenta) ---
-  - model_name: kimi-k2
+      model: zai/glm-5.2
+      api_key: os.environ/ZAI_API_KEY
+  - model_name: glm-executor
     litellm_params:
-      model: openai/kimi-k2-0711-preview
-      api_base: https://api.moonshot.ai/v1
-      api_key: os.environ/MOONSHOT_API_KEY
+      model: zai/glm-5.2
+      api_key: os.environ/ZAI_API_KEY
 
 litellm_settings:
   drop_params: true
