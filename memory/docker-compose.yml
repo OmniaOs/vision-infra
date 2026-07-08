@@ -12,7 +12,9 @@
 # openmemory-mcp (8765) y openmemory-ui (3000) con dominios/TLS de Coolify;
 # deja qdrant SIN puerto público.
 services:
-  qdrant:
+  # OJO: el servicio DEBE llamarse 'mem0_store' — es el host que OpenMemory
+  # hardcodea en su config por defecto para el vector store (qdrant).
+  mem0_store:
     image: qdrant/qdrant
     restart: unless-stopped
     volumes:
@@ -26,7 +28,7 @@ services:
       - USER=${OMNIA_MEMORY_DEFAULT_USER:-omnia}
       - API_KEY=${OPENMEMORY_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - QDRANT_HOST=qdrant
+      - QDRANT_HOST=mem0_store
       - QDRANT_PORT=6333
       # LLM/Embedder configurables; por defecto OpenAI. Para usar el gateway de
       # Omnia (API keys de pago, OpenAI-compatible), apunta LLM_BASE_URL ahí.
@@ -36,13 +38,14 @@ services:
       - EMBEDDER_PROVIDER=${EMBEDDER_PROVIDER:-openai}
       - EMBEDDER_MODEL=${EMBEDDER_MODEL:-text-embedding-3-small}
     depends_on:
-      - qdrant
+      - mem0_store
     ports:
       - "8765:8765"
     volumes:
       - openmemory_data:/usr/src/openmemory/data
+    # --workers 1: evita la carrera en SQLite (apps.owner_id) al primer arranque.
     command: >
-      sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --workers 4"
+      sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --workers 1"
 
   openmemory-ui:
     image: mem0/openmemory-ui:latest
