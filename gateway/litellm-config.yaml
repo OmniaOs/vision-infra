@@ -1,26 +1,26 @@
 # Configuración del gateway LiteLLM de Omnia.
-# Único proveedor: GLM 5.2 (z.ai), API de pago — para cargas PROGRAMÁTICAS
-# (Hermes, CI, agentes batch) y BYOK. El trabajo interactivo NO pasa por aquí:
-# cada dev usa su seat de Claude Team en Claude Code (flat-rate, sin API key).
+# Proveedor: GLM (z.ai) vía el **endpoint de CODING** (/api/coding/paas/v4) —
+# usa la cuota del GLM Coding Plan (NO saldo prepago; el endpoint general
+# /api/paas/v4 sí requiere créditos y da error 1113 sin saldo).
+# Para cargas PROGRAMÁTICAS (Hermes, CI, BYOK). El dev interactivo usa su seat
+# de Claude Team en Claude Code, no el gateway.
 model_list:
-  # --- GLM 5.2 (z.ai) — plan + ejecución ---
-  # LiteLLM tiene provider nativo `zai/`. Usa ZAI_API_KEY.
-  - model_name: glm            # alias que piden los clientes (Kilo/Hermes)
+  # Workhorse: GLM 4.6 — salida limpia y más ligero para el Coding Lite + Hermes.
+  - model_name: glm
     litellm_params:
-      model: zai/glm-5.2
+      model: openai/glm-4.6
+      api_base: https://api.z.ai/api/coding/paas/v4
       api_key: os.environ/ZAI_API_KEY
-      # Coding Plan de z.ai: descomenta el api_base del endpoint /coding/ (es más
-      # barato por volumen). Pago-por-token normal: deja el default (api/paas/v4).
-      # api_base: https://api.z.ai/api/coding/paas/v4
-
-  # Alias explícitos por si quieres separar tiers apuntando al mismo modelo:
-  - model_name: glm-planner
+  # Flagship: GLM 5.2 — para el trabajo de coding más pesado.
+  - model_name: glm-5.2
     litellm_params:
-      model: zai/glm-5.2
+      model: openai/glm-5.2
+      api_base: https://api.z.ai/api/coding/paas/v4
       api_key: os.environ/ZAI_API_KEY
-  - model_name: glm-executor
+  - model_name: glm-4.7
     litellm_params:
-      model: zai/glm-5.2
+      model: openai/glm-4.7
+      api_base: https://api.z.ai/api/coding/paas/v4
       api_key: os.environ/ZAI_API_KEY
 
 litellm_settings:
