@@ -1,0 +1,6 @@
+# Repo de infra destinado a Linux (Coolify/Docker). Fuerza LF en todo el texto:
+# un checkout/commit con CRLF rompe entrypoints de shell (/bin/sh^M) en el server.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary

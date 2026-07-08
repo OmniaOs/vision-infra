@@ -1,0 +1,34 @@
+# Configuración del gateway LiteLLM de Omnia.
+# Providers vía API keys de pago (NO suscripciones). Ajusta los model ids exactos.
+model_list:
+  # --- Anthropic (API de pago, NO el token de Claude Max) ---
+  - model_name: claude-opus
+    litellm_params:
+      model: anthropic/claude-opus-4-8
+      api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: claude-sonnet
+    litellm_params:
+      model: anthropic/claude-sonnet-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  # --- Google Gemini (API de pago, NO el plan Ultra) ---
+  - model_name: gemini-pro
+    litellm_params:
+      model: gemini/gemini-2.5-pro
+      api_key: os.environ/GEMINI_API_KEY
+
+  # --- Kimi / Moonshot (OpenAI-compatible; confirma el model id en tu cuenta) ---
+  - model_name: kimi-k2
+    litellm_params:
+      model: openai/kimi-k2-0711-preview
+      api_base: https://api.moonshot.ai/v1
+      api_key: os.environ/MOONSHOT_API_KEY
+
+litellm_settings:
+  drop_params: true
+  # tracking de tokens/costo por virtual key queda en Postgres (DATABASE_URL)
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+  # UI de uso en http://<host>:4000/ui

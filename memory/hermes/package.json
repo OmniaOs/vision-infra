@@ -1,0 +1,13 @@
+{
+  "name": "omnia-hermes",
+  "version": "0.1.0",
+  "description": "Hermes — daemon de self-learning de Omnia (propone → humano aprueba)",
+  "type": "module",
+  "bin": { "hermes": "./index.mjs" },
+  "scripts": {
+    "start": "node index.mjs --loop",
+    "once": "node index.mjs",
+    "dry-run": "node index.mjs --dry-run"
+  },
+  "engines": { "node": ">=20.0.0" }
+}

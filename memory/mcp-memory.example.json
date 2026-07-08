@@ -1,0 +1,9 @@
+{
+  "_comment": "Fusiona el bloque 'basic-memory' dentro de mcpServers del .mcp.json de cada repo (no reemplaces los servidores existentes como 'dart' en OmniaPOS).",
+  "mcpServers": {
+    "basic-memory": {
+      "command": "uvx",
+      "args": ["basic-memory", "mcp"]
+    }
+  }
+}

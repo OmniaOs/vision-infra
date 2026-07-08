@@ -1,0 +1,84 @@
+# Omnia — stack de memoria compartida + self-learning (para VPS + Coolify).
+# Basado en el docker-compose oficial de OpenMemory (mem0ai/mem0), adaptado a
+# producción: imágenes publicadas (sin build ni --reload), volúmenes persistentes.
+#
+# Servicios:
+#   qdrant          store vectorial (interno, no expuesto públicamente)
+#   openmemory-mcp  API + servidor MCP de la memoria compartida (:8765)
+#   openmemory-ui   dashboard web de la memoria (:3000)
+#   hermes          daemon de self-learning (propone → humano aprueba)
+#
+# En Coolify: crea un recurso "Docker Compose" apuntando a este repo. Expón
+# openmemory-mcp (8765) y openmemory-ui (3000) con dominios/TLS de Coolify;
+# deja qdrant SIN puerto público.
+services:
+  qdrant:
+    image: qdrant/qdrant
+    restart: unless-stopped
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    # sin 'ports': solo accesible dentro de la red del stack
+
+  openmemory-mcp:
+    image: mem0/openmemory-mcp
+    restart: unless-stopped
+    environment:
+      - USER=${OMNIA_MEMORY_DEFAULT_USER:-omnia}
+      - API_KEY=${OPENMEMORY_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      # LLM/Embedder configurables; por defecto OpenAI. Para usar el gateway de
+      # Omnia (API keys de pago, OpenAI-compatible), apunta LLM_BASE_URL ahí.
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
+      - LLM_BASE_URL=${LLM_BASE_URL:-}
+      - EMBEDDER_PROVIDER=${EMBEDDER_PROVIDER:-openai}
+      - EMBEDDER_MODEL=${EMBEDDER_MODEL:-text-embedding-3-small}
+    depends_on:
+      - qdrant
+    ports:
+      - "8765:8765"
+    volumes:
+      - openmemory_data:/usr/src/openmemory/data
+    command: >
+      sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --workers 4"
+
+  openmemory-ui:
+    image: mem0/openmemory-ui:latest
+    restart: unless-stopped
+    environment:
+      - NEXT_PUBLIC_API_URL=${OPENMEMORY_PUBLIC_API_URL}
+      - NEXT_PUBLIC_USER_ID=${OMNIA_MEMORY_DEFAULT_USER:-omnia}
+    depends_on:
+      - openmemory-mcp
+    ports:
+      - "3000:3000"
+
+  hermes:
+    build: ./hermes
+    image: omnia/hermes:latest
+    restart: unless-stopped
+    environment:
+      # Memoria destino (proponer, no escribir directo — ver hermes/README.md)
+      - OMNIA_MEMORY_MCP_URL=http://openmemory-mcp:8765
+      - OPENMEMORY_API_KEY=${OPENMEMORY_API_KEY}
+      # LLM programático vía gateway (API key de pago — NO suscripciones/ToS)
+      - HERMES_LLM_BASE_URL=${HERMES_LLM_BASE_URL}
+      - HERMES_LLM_API_KEY=${HERMES_LLM_API_KEY}
+      - HERMES_LLM_MODEL=${HERMES_LLM_MODEL:-claude-sonnet}
+      # Repos a observar y destino de propuestas (PR de aprobación)
+      - HERMES_REPOS=${HERMES_REPOS}
+      - HERMES_PROPOSALS_REMOTE=${HERMES_PROPOSALS_REMOTE}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      # Cadencia del daemon (segundos). Coolify también puede correrlo por cron.
+      - HERMES_INTERVAL=${HERMES_INTERVAL:-86400}
+    depends_on:
+      - openmemory-mcp
+    volumes:
+      - hermes_state:/app/state
+
+volumes:
+  qdrant_storage:
+  openmemory_data:
+  hermes_state:

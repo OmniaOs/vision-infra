@@ -1,0 +1,15 @@
+{
+  "_comment": "Copia este archivo a hub.config.json y ajusta rutas y mapeo de autores.",
+  "repos": [
+    { "name": "OmniaPOS", "path": "../OmniaPOS" },
+    { "name": "VisionFramework", "path": "../VisionFramework" }
+  ],
+  "authorMap": {
+    "emilio@omniaos.ai": "emilio",
+    "Gibran": "gibran",
+    "gio@omniaos.ai": "gio",
+    "Lancelot": "lancelot"
+  },
+  "includeDemo": true,
+  "pricing": {}
+}

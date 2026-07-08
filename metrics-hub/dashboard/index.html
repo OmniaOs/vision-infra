@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>🏆 Omnia Metrics Hub</title>
+<style>
+  :root { --bg:#0f1115; --card:#171a21; --line:#262b36; --fg:#e6e9ef; --dim:#8b93a7; --acc:#ff7a1a; --gold:#ffd23f; --silver:#c9d1d9; --bronze:#e08b4c; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif; }
+  header { padding:20px 24px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  h1 { font-size:20px; margin:0; }
+  .muted { color:var(--dim); font-size:12px; }
+  .filters { margin-left:auto; display:flex; gap:8px; align-items:center; }
+  select, button { background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:6px 10px; font:inherit; }
+  main { padding:24px; max-width:1100px; margin:0 auto; }
+  .totals { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:20px; }
+  .kpi { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 18px; min-width:150px; }
+  .kpi .v { font-size:22px; font-weight:700; }
+  .kpi .l { color:var(--dim); font-size:12px; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  th, td { padding:12px 14px; text-align:left; border-bottom:1px solid var(--line); }
+  th { color:var(--dim); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.04em; cursor:pointer; user-select:none; }
+  tr:last-child td { border-bottom:none; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .rank { font-size:18px; width:44px; }
+  .bar { height:6px; background:var(--acc); border-radius:3px; margin-top:6px; }
+  .models { color:var(--dim); font-size:11px; }
+  .foot { color:var(--dim); font-size:12px; margin-top:16px; }
+  .empty { padding:40px; text-align:center; color:var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🏆 Omnia Metrics Hub</h1>
+  <span class="muted" id="gen"></span>
+  <div class="filters">
+    <label class="muted">Repo:
+      <select id="repo"><option value="">Todos</option></select>
+    </label>
+    <label class="muted">Orden:
+      <select id="sort">
+        <option value="tokens">🔥 Tokens</option>
+        <option value="commits">🚀 Commits</option>
+        <option value="cost">💲 Costo</option>
+        <option value="eff">⚡ Eficiencia (commits/MTok)</option>
+      </select>
+    </label>
+    <button id="reload">↻</button>
+  </div>
+</header>
+<main>
+  <div class="totals" id="totals"></div>
+  <div id="board"></div>
+  <div class="foot">Eficiencia = commits por millón de tokens. Ranking compuesto para motivar entrega real, no solo quema de tokens.</div>
+</main>
+<script>
+const fmt = n => (n||0).toLocaleString();
+const medals = ['🥇','🥈','🥉'];
+let DATA = null;
+
+function currentRepo() { return document.getElementById('repo').value; }
+function viewRow(d) {
+  const repo = currentRepo();
+  if (!repo) return { dev:d.dev, tokens:d.tokens.total, commits:d.commits, cost:d.costUSD, byModel:d.byModel };
+  const r = d.byRepo[repo] || { tokens:0, commits:0, costUSD:0 };
+  return { dev:d.dev, tokens:r.tokens, commits:r.commits, cost:Math.round(r.costUSD*100)/100, byModel:d.byModel };
+}
+function eff(row){ const m=row.tokens/1e6; return m>0? Math.round((row.commits/m)*100)/100 : 0; }
+
+function render() {
+  if (!DATA) return;
+  document.getElementById('gen').textContent = 'Actualizado ' + new Date(DATA.generatedAt).toLocaleString() + (DATA.since? ' · desde '+DATA.since : '');
+  const rows = DATA.devs.map(viewRow).filter(r => r.tokens>0 || r.commits>0);
+  const sortBy = document.getElementById('sort').value;
+  const keyf = { tokens:r=>r.tokens, commits:r=>r.commits, cost:r=>r.cost, eff:r=>eff(r) }[sortBy];
+  rows.sort((a,b)=>keyf(b)-keyf(a));
+
+  const tCost = rows.reduce((s,r)=>s+r.cost,0), tTok = rows.reduce((s,r)=>s+r.tokens,0), tCom = rows.reduce((s,r)=>s+r.commits,0);
+  document.getElementById('totals').innerHTML =
+    kpi('🔥 Tokens', fmt(tTok)) + kpi('🚀 Commits', fmt(tCom)) + kpi('💲 Costo est.', '$'+ (Math.round(tCost*100)/100).toLocaleString()) + kpi('👥 Devs', rows.length);
+
+  const max = Math.max(1, ...rows.map(keyf));
+  const board = document.getElementById('board');
+  if (!rows.length) { board.innerHTML = '<div class="empty">Sin datos todavía. Corre <code>node scripts/collect.mjs</code>.</div>'; return; }
+  board.innerHTML = '<table><thead><tr>' +
+    '<th class="rank">#</th><th>Dev</th>' +
+    '<th class="num">🔥 Tokens</th><th class="num">🚀 Commits</th><th class="num">💲 USD</th><th class="num">⚡ c/MTok</th>' +
+    '</tr></thead><tbody>' +
+    rows.map((r,i)=>{
+      const models = Object.entries(r.byModel).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([m,v])=>m.replace('claude-','')+' '+fmt(v)).join(' · ');
+      const w = Math.round(keyf(r)/max*100);
+      return '<tr><td class="rank">'+(medals[i]||(i+1))+'</td>'+
+        '<td><b>'+r.dev+'</b><div class="models">'+models+'</div><div class="bar" style="width:'+w+'%"></div></td>'+
+        '<td class="num">'+fmt(r.tokens)+'</td>'+
+        '<td class="num">'+fmt(r.commits)+'</td>'+
+        '<td class="num">$'+r.cost.toLocaleString()+'</td>'+
+        '<td class="num">'+eff(r)+'</td></tr>';
+    }).join('') + '</tbody></table>';
+}
+function kpi(l,v){ return '<div class="kpi"><div class="v">'+v+'</div><div class="l">'+l+'</div></div>'; }
+
+async function load() {
+  try {
+    const res = await fetch('/data/aggregate.json?t='+Date.now());
+    DATA = await res.json();
+    const sel = document.getElementById('repo');
+    sel.innerHTML = '<option value="">Todos</option>' + (DATA.repos||[]).map(r=>'<option>'+r+'</option>').join('');
+    render();
+  } catch(e) {
+    document.getElementById('board').innerHTML = '<div class="empty">No pude cargar data/aggregate.json — corre <code>node scripts/collect.mjs</code> primero.</div>';
+  }
+}
+document.getElementById('sort').onchange = render;
+document.getElementById('repo').onchange = render;
+document.getElementById('reload').onclick = load;
+load();
+</script>
+</body>
+</html>

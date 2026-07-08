@@ -1,0 +1,12 @@
+# Secrets — nunca commitear
+.env
+**/.env
+**/.memory.env
+
+# Dependencias
+node_modules/
+
+# Datos generados en runtime
+metrics-hub/data/aggregate.json
+metrics-hub/hub.config.runtime.json
+memory/hermes/state/

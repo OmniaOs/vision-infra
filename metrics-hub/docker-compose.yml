@@ -1,0 +1,23 @@
+# Omnia Metrics Hub — para VPS + Coolify. Un solo servicio Node que clona los
+# repos configurados, agrega telemetría+commits en bucle y sirve el dashboard.
+# En Coolify: recurso "Docker Compose" apuntando a este repo; expón el 4320 con
+# un dominio/TLS de Coolify.
+services:
+  metrics-hub:
+    build: .
+    image: omnia/metrics-hub:latest
+    restart: unless-stopped
+    environment:
+      # Repos a agregar (CSV owner/repo).
+      - HUB_REPOS=${HUB_REPOS:-OmniaOs/OmniaPOS,OmniaOs/VisionFramework,OmniaOs/frutal,OmniaOs/weritas}
+      # Token para clonar repos privados.
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      # Cada cuánto re-colectar (segundos).
+      - HUB_INTERVAL=${HUB_INTERVAL:-3600}
+    ports:
+      - "4320:4320"
+    volumes:
+      - hub_repos:/repos
+
+volumes:
+  hub_repos:

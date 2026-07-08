@@ -1,0 +1,13 @@
+{
+  "name": "omnia-metrics-hub",
+  "version": "0.1.0",
+  "description": "Leaderboard cross-repo del equipo Omnia: tokens + commits + costo + eficiencia.",
+  "type": "module",
+  "bin": { "omnia-hub": "./scripts/collect.mjs" },
+  "scripts": {
+    "collect": "node scripts/collect.mjs",
+    "dashboard": "node scripts/serve.mjs",
+    "hub": "node scripts/collect.mjs && node scripts/serve.mjs"
+  },
+  "engines": { "node": ">=18.0.0" }
+}
