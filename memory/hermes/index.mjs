@@ -72,7 +72,9 @@ async function cycle() {
   const result = await propose(proposals, {
     dryRun: DRY_RUN,
     stateDir: STATE_DIR,
-    token: process.env.GITHUB_TOKEN,
+    // Token con WRITE en el repo de propuestas (separado del de lectura de repos).
+    // Fallback al GITHUB_TOKEN de lectura (que no podrá abrir PR → escribe archivo).
+    token: process.env.HERMES_PROPOSALS_TOKEN || process.env.GITHUB_TOKEN,
     remote: process.env.HERMES_PROPOSALS_REMOTE,
     dateStr: isoDate(),
   });

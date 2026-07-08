@@ -74,6 +74,8 @@ services:
       - HERMES_REPOS=${HERMES_REPOS}
       - HERMES_PROPOSALS_REMOTE=${HERMES_PROPOSALS_REMOTE}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
+      # Token con WRITE solo en el repo de propuestas (Contents+PR write en vision-infra).
+      - HERMES_PROPOSALS_TOKEN=${HERMES_PROPOSALS_TOKEN}
       # Cadencia del daemon (segundos). Coolify también puede correrlo por cron.
       - HERMES_INTERVAL=${HERMES_INTERVAL:-86400}
     depends_on:
