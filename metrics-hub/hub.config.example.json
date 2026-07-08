@@ -1,15 +1,20 @@
 {
-  "_comment": "Copia este archivo a hub.config.json y ajusta rutas y mapeo de autores.",
+  "_comment": "Config base del hub. En el contenedor, docker-entrypoint.sh lee este archivo (hub.config.json está gitignoreado para dev local) y sobreescribe `repos` con los clones de HUB_REPOS. Editar authorMap aquí. OJO: mapear por NOMBRE de git, no email; admin@omniaos.ai es ambiguo (Emilio y lancelotF).",
   "repos": [
     { "name": "OmniaPOS", "path": "../OmniaPOS" },
     { "name": "VisionFramework", "path": "../VisionFramework" }
   ],
   "authorMap": {
-    "emilio@omniaos.ai": "emilio",
+    "Emilio Dabdoub": "emilio",
+    "emiliodabdoub": "emilio",
     "Gibran": "gibran",
-    "gio@omniaos.ai": "gio",
-    "Lancelot": "lancelot"
+    "GioAtondo": "gio",
+    "Lancelot": "lancelot",
+    "Lancelot Fierro": "lancelot",
+    "lancelotF": "lancelot",
+    "Omnia Bot": "omnia-bot",
+    "GitAgent": "gitagent"
   },
-  "includeDemo": true,
+  "includeDemo": false,
   "pricing": {}
 }

@@ -4,7 +4,8 @@
 #  2. Genera hub.config.json (repos apuntando a los clones; conserva authorMap
 #     comiteado en hub.config.json).
 #  3. Corre collect una vez, arranca el server (:4320) y re-colecta en bucle.
-set -e
+# Sin `set -e`: ningún paso no crítico debe tumbar el server (evita crash-loop);
+# lo único que debe correr sí o sí es el `exec node serve.mjs` final.
 
 REPOS_DIR="${HUB_REPOS_DIR:-/repos}"
 INTERVAL="${HUB_INTERVAL:-3600}"
@@ -31,16 +32,19 @@ for entry in $HUB_REPOS; do
 done
 unset IFS
 
-# 2) generar hub.config.json (conservando authorMap comiteado)
+# 2) generar hub.config.runtime.json (conservando authorMap del config base).
+#    En el contenedor solo se commitea hub.config.example.json (hub.config.json
+#    está gitignoreado para dev local); leemos el que exista.
 node -e '
 const fs=require("fs");
-const base=JSON.parse(fs.readFileSync("hub.config.json","utf8"));
+const baseFile=fs.existsSync("hub.config.json")?"hub.config.json":"hub.config.example.json";
+const base=JSON.parse(fs.readFileSync(baseFile,"utf8"));
 const dir=process.env.HUB_REPOS_DIR||"/repos";
 const csv=(process.env.HUB_REPOS||"").split(",").map(s=>s.trim()).filter(Boolean);
 base.repos=csv.map(e=>{const n=e.split("/").pop();return {name:n,path:`${dir}/${n}`};});
 fs.writeFileSync("hub.config.runtime.json",JSON.stringify(base,null,2));
-console.log("config runtime:",base.repos.length,"repos");
-'
+console.log("config runtime:",base.repos.length,"repos desde",baseFile);
+' || echo "aviso: no pude generar config runtime"
 
 # 3) collect inicial + server + bucle de re-colecta
 node scripts/collect.mjs --config hub.config.runtime.json || true
