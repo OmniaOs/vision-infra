@@ -1,4 +1,4 @@
-# 🏗️ Omnia Platform — infraestructura compartida
+# 🏗️ Vision Infra — infraestructura compartida
 
 Repo de **infraestructura** (no de producto). Contiene los servicios de servidor
 que todos los proyectos de Omnia (OmniaPOS, Frutal, Weritas, …) consumen. Cada
