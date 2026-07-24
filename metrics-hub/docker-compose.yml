@@ -14,8 +14,9 @@ services:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       # Cada cuánto re-colectar (segundos).
       - HUB_INTERVAL=${HUB_INTERVAL:-3600}
+    # Solo loopback: acceso remoto por túnel SSH (post-incidente 20-jul-2026).
     ports:
-      - "4320:4320"
+      - "127.0.0.1:4320:4320"
     volumes:
       - hub_repos:/repos
 

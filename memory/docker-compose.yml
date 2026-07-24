@@ -8,9 +8,12 @@
 #   openmemory-ui   dashboard web de la memoria (:3000)
 #   hermes          daemon de self-learning (propone → humano aprueba)
 #
-# En Coolify: crea un recurso "Docker Compose" apuntando a este repo. Expón
-# openmemory-mcp (8765) y openmemory-ui (3000) con dominios/TLS de Coolify;
-# deja qdrant SIN puerto público.
+# SEGURIDAD (post-incidente 20-jul-2026): TODOS los puertos se publican solo en
+# 127.0.0.1 — el acceso remoto es por túnel SSH, nunca por puerto abierto a
+# internet. La UI (openmemory-ui) queda DESACTIVADA por defecto (profile "ui"):
+# fue el vector del exploit (RCE sin auth) y Coolify inyecta las env del app a
+# todos los contenedores del stack, así que la UI exponía tokens que no usaba.
+# Solo activarla detrás de auth (Traefik BasicAuth) o vía túnel: COMPOSE_PROFILES=ui.
 services:
   # OJO: el servicio DEBE llamarse 'mem0_store' — es el host que OpenMemory
   # hardcodea en su config por defecto para el vector store (qdrant).
@@ -40,7 +43,7 @@ services:
     depends_on:
       - mem0_store
     ports:
-      - "8765:8765"
+      - "127.0.0.1:8765:8765"
     volumes:
       - openmemory_data:/usr/src/openmemory/data
     # --workers 1: evita la carrera en SQLite (apps.owner_id) al primer arranque.
@@ -50,13 +53,15 @@ services:
   openmemory-ui:
     image: mem0/openmemory-ui:latest
     restart: unless-stopped
+    # Desactivada por defecto (ver nota de SEGURIDAD arriba).
+    profiles: ["ui"]
     environment:
       - NEXT_PUBLIC_API_URL=${OPENMEMORY_PUBLIC_API_URL}
       - NEXT_PUBLIC_USER_ID=${OMNIA_MEMORY_DEFAULT_USER:-omnia}
     depends_on:
       - openmemory-mcp
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
 
   hermes:
     build: ./hermes
