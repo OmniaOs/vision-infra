@@ -7,8 +7,9 @@ services:
     build: .
     image: omnia/gateway-litellm:latest
     restart: unless-stopped
+    # Solo loopback: acceso remoto por túnel SSH (post-incidente 20-jul-2026).
     ports:
-      - "4000:4000"
+      - "127.0.0.1:4000:4000"
     environment:
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
       DATABASE_URL: postgresql://litellm:${POSTGRES_PASSWORD}@db:5432/litellm
