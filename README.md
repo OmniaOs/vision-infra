@@ -18,7 +18,7 @@ subcarpeta es un recurso desplegable en **Coolify** sobre un VPS dedicado.
 
 ## Deploy
 
-Guía completa en [`../DEPLOY_COOLIFY.md`](../DEPLOY_COOLIFY.md): orden, puertos,
+Guía completa en [`DEPLOY_COOLIFY.md`](DEPLOY_COOLIFY.md): orden, puertos,
 subdominios, secrets y comunicación entre servicios. Modelo elegido:
 **Coolify vía su API** sobre un VPS nuevo (Hetzner/OVH).
 

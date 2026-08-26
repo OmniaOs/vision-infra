@@ -2,7 +2,7 @@
 
 Capa de memoria **compartida** del equipo + self-learning. Este repo es el
 recurso de Coolify que hostea la memoria en el VPS. Deploy: ver
-[`DEPLOY_COOLIFY.md`](../DEPLOY_COOLIFY.md) en la raíz.
+[`DEPLOY_COOLIFY.md`](../DEPLOY_COOLIFY.md) en la raíz del repo.
 
 > **Decisión (jul-2026):** memoria **compartida y hosteada** con **Mem0
 > self-hosted** (OpenMemory), no basic-memory local por dev. La conexión de cada
