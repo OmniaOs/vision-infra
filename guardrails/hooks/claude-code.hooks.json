@@ -1,0 +1,19 @@
+{
+  "_comment": "Bloque de hooks que `vision init` fusiona en .claude/settings.json (preservando lo existente). Guarda operaciones peligrosas antes de ejecutarlas vía guardrails/checks/precmd.mjs.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "node guardrails/checks/precmd.mjs" }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|Read|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": "node guardrails/checks/precmd.mjs" }
+        ]
+      }
+    ]
+  }
+}

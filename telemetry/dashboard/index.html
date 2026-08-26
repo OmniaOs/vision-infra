@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🔥 Leaderboard de Quema de Tokens — OmniaPOS</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --panel2: #1c2230; --border: #2d3646;
+    --text: #e6edf3; --muted: #8b98a9; --accent: #ff7a45; --gold: #ffd54a;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.5 "Segoe UI", system-ui, sans-serif; padding: 24px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; margin-bottom: 20px; }
+  h1 { font-size: 26px; }
+  h1 .flame { filter: drop-shadow(0 0 6px #ff7a4588); }
+  header .sub { color: var(--muted); }
+  .filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 24px; }
+  .filters select {
+    background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 12px; font-size: 14px;
+  }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-bottom: 32px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px;
+    position: relative; overflow: hidden;
+  }
+  .card.first { border-color: var(--gold); box-shadow: 0 0 18px #ffd54a22; }
+  .rank { font-size: 30px; position: absolute; top: 14px; right: 16px; }
+  .card .dev { font-size: 19px; font-weight: 600; margin-bottom: 2px; }
+  .card .total { font-size: 32px; font-weight: 700; color: var(--accent); }
+  .card .total small { font-size: 15px; color: var(--muted); font-weight: 400; }
+  .card .cost { color: var(--muted); margin-bottom: 10px; }
+  .bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--panel2); margin-bottom: 8px; }
+  .bar div { height: 100%; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 12.5px; color: var(--muted); }
+  .legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
+  .kpis { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 32px; }
+  .kpi { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; }
+  .kpi b { display: block; font-size: 18px; }
+  .kpi span { color: var(--muted); font-size: 13px; }
+  h2 { font-size: 18px; margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  th, td { padding: 9px 14px; text-align: right; border-bottom: 1px solid var(--border); font-size: 14px; }
+  th:first-child, td:first-child, th:nth-child(2), td:nth-child(2), th:nth-child(3), td:nth-child(3) { text-align: left; }
+  th { background: var(--panel2); color: var(--muted); font-weight: 600; font-size: 13px; }
+  tr:last-child td { border-bottom: none; }
+  td.num { font-variant-numeric: tabular-nums; }
+  .empty { background: var(--panel); border: 1px dashed var(--border); border-radius: 12px; padding: 40px; text-align: center; color: var(--muted); }
+  .tablewrap { overflow-x: auto; margin-bottom: 32px; }
+  footer { color: var(--muted); font-size: 13px; margin-top: 24px; }
+  .modelchip { display: inline-block; background: var(--panel2); border-radius: 6px; padding: 1px 8px; font-size: 12.5px; margin: 1px 2px; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="flame">🔥</span> Leaderboard de Quema de Tokens</h1>
+  <span class="sub">OmniaPOS · uso por programador, modelo y tarea</span>
+</header>
+
+<div class="filters">
+  <select id="f-period">
+    <option value="all">Todo el historial</option>
+    <option value="today">Hoy</option>
+    <option value="7">Últimos 7 días</option>
+    <option value="30" selected>Últimos 30 días</option>
+  </select>
+  <select id="f-dev"><option value="all">Todos los devs</option></select>
+  <select id="f-model"><option value="all">Todos los modelos</option></select>
+</div>
+
+<div class="kpis" id="kpis"></div>
+<div class="cards" id="leaderboard"></div>
+
+<h2>Detalle por tarea</h2>
+<div class="tablewrap"><table id="tasks">
+  <thead><tr>
+    <th>Dev</th><th>Tarea</th><th>Modelo(s)</th><th>Entrada</th><th>Salida</th><th>Cache</th><th>Total</th><th>Costo est.</th>
+  </tr></thead>
+  <tbody></tbody>
+</table></div>
+
+<footer>
+  Costo estimado según <code>telemetry/devs.json</code> (cache read 0.1× input, cache write 1.25× input).
+  Los datos vienen de <code>telemetry/usage/*.jsonl</code> — corre <code>pnpm usage:log</code> y commitea para actualizar.
+</footer>
+
+<script>
+const COLORS = ['#ff7a45','#5b9dff','#4dd08a','#c792ea','#ffd54a','#ff6b9d','#4fd6d0','#a3b3c9'];
+const modelColor = new Map();
+function colorFor(model) {
+  if (!modelColor.has(model)) modelColor.set(model, COLORS[modelColor.size % COLORS.length]);
+  return modelColor.get(model);
+}
+function shortModel(m) {
+  return m.replace(/^claude-/, '').replace(/-\d{8}$/, '');
+}
+const nf = new Intl.NumberFormat('es-MX');
+function fmtTok(n) {
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + ' B';
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + ' M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + ' K';
+  return nf.format(n);
+}
+function fmtUsd(n) { return '$' + n.toFixed(2) + ' USD'; }
+
+let PRICING = {}, ROWS = [], DEVS = [];
+function priceOf(model) {
+  if (PRICING[model]) return PRICING[model];
+  const base = Object.keys(PRICING).find(k => k !== 'default' && model.startsWith(k));
+  return base ? PRICING[base] : (PRICING.default || { input: 5, output: 25 });
+}
+function costOf(r) {
+  const p = priceOf(r.model);
+  return (r.input * p.input + r.output * p.output
+        + r.cache_read * 0.1 * p.input + r.cache_write * 1.25 * p.input) / 1e6;
+}
+function totalOf(r) { return r.input + r.output + r.cache_read + r.cache_write; }
+
+async function load() {
+  const manifest = await (await fetch('/devs.json')).json();
+  PRICING = manifest.pricing || {};
+  const rows = [];
+  await Promise.all((manifest.devs || []).map(async dev => {
+    try {
+      const res = await fetch(`/usage/${dev}.jsonl`);
+      if (!res.ok) return;
+      for (const line of (await res.text()).split('\n')) {
+        if (!line.trim()) continue;
+        try {
+          const r = JSON.parse(line);
+          r.input ||= 0; r.output ||= 0; r.cache_read ||= 0; r.cache_write ||= 0;
+          rows.push(r);
+        } catch {}
+      }
+    } catch {}
+  }));
+  ROWS = rows;
+  DEVS = [...new Set([...(manifest.devs || []), ...rows.map(r => r.dev)])].sort();
+  const models = [...new Set(rows.map(r => r.model))].sort();
+  fill('f-dev', DEVS); fill('f-model', models, shortModel);
+  render();
+}
+function fill(id, values, label = v => v) {
+  const sel = document.getElementById(id);
+  for (const v of values) {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = label(v);
+    sel.appendChild(o);
+  }
+  sel.addEventListener('change', render);
+}
+document.getElementById('f-period').addEventListener('change', render);
+
+function filtered() {
+  const period = document.getElementById('f-period').value;
+  const dev = document.getElementById('f-dev').value;
+  const model = document.getElementById('f-model').value;
+  let since = null;
+  const now = new Date();
+  if (period === 'today') { since = new Date(now); since.setHours(0, 0, 0, 0); }
+  else if (period !== 'all') { since = new Date(now.getTime() - Number(period) * 864e5); }
+  return ROWS.filter(r =>
+    (!since || new Date(r.ts) >= since) &&
+    (dev === 'all' || r.dev === dev) &&
+    (model === 'all' || r.model === model));
+}
+
+function render() {
+  const rows = filtered();
+  const lb = document.getElementById('leaderboard');
+  const kpis = document.getElementById('kpis');
+  const tbody = document.querySelector('#tasks tbody');
+  lb.innerHTML = ''; kpis.innerHTML = ''; tbody.innerHTML = '';
+
+  if (!rows.length && !DEVS.length) {
+    lb.innerHTML = '<div class="empty" style="grid-column:1/-1">Sin datos. Corre <code>pnpm usage:log</code> y recarga.</div>';
+    return;
+  }
+
+  // KPIs globales
+  const gTotal = rows.reduce((a, r) => a + totalOf(r), 0);
+  const gOut = rows.reduce((a, r) => a + r.output, 0);
+  const gCost = rows.reduce((a, r) => a + costOf(r), 0);
+  const gSessions = new Set(rows.map(r => r.session)).size;
+  for (const [v, l] of [[fmtTok(gTotal), 'tokens quemados'], [fmtTok(gOut), 'tokens de salida'],
+                        [fmtUsd(gCost), 'costo estimado'], [nf.format(gSessions), 'sesiones']]) {
+    kpis.insertAdjacentHTML('beforeend', `<div class="kpi"><b>${v}</b><span>${l}</span></div>`);
+  }
+
+  // Leaderboard por dev — despliega a TODOS los devs del manifest, aunque tengan 0
+  const devFilter = document.getElementById('f-dev').value;
+  const byDev = new Map();
+  for (const dev of DEVS) {
+    if (devFilter === 'all' || dev === devFilter) {
+      byDev.set(dev, { total: 0, cost: 0, models: new Map() });
+    }
+  }
+  for (const r of rows) {
+    const d = byDev.get(r.dev) || { total: 0, cost: 0, models: new Map() };
+    d.total += totalOf(r); d.cost += costOf(r);
+    d.models.set(r.model, (d.models.get(r.model) || 0) + totalOf(r));
+    byDev.set(r.dev, d);
+  }
+  const ranking = [...byDev.entries()].sort((a, b) => b[1].total - a[1].total);
+  const medals = ['🥇', '🥈', '🥉'];
+  ranking.forEach(([dev, d], i) => {
+    const hasData = d.total > 0;
+    const bar = hasData ? [...d.models.entries()].sort((a, b) => b[1] - a[1]).map(([m, t]) =>
+      `<div style="width:${(t / d.total * 100).toFixed(1)}%;background:${colorFor(m)}" title="${shortModel(m)}: ${fmtTok(t)}"></div>`).join('') : '';
+    const legend = hasData ? [...d.models.entries()].sort((a, b) => b[1] - a[1]).map(([m, t]) =>
+      `<span><span class="dot" style="background:${colorFor(m)}"></span>${shortModel(m)} · ${fmtTok(t)}</span>`).join('')
+      : '<span>❄️ sin quema registrada en este periodo</span>';
+    lb.insertAdjacentHTML('beforeend', `
+      <div class="card ${i === 0 && hasData ? 'first' : ''}" style="${hasData ? '' : 'opacity:.65'}">
+        <div class="rank">${hasData ? (medals[i] || '#' + (i + 1)) : '💤'}</div>
+        <div class="dev">${dev}</div>
+        <div class="total">${fmtTok(d.total)} <small>tokens</small></div>
+        <div class="cost">${fmtUsd(d.cost)} estimados</div>
+        <div class="bar">${bar}</div>
+        <div class="legend">${legend}</div>
+      </div>`);
+  });
+
+  // Tabla por tarea
+  const byTask = new Map();
+  for (const r of rows) {
+    const key = `${r.dev}|${r.task}`;
+    const t = byTask.get(key) || { dev: r.dev, task: r.task, models: new Set(),
+      input: 0, output: 0, cache: 0, total: 0, cost: 0, ts: r.ts };
+    t.models.add(r.model);
+    t.input += r.input; t.output += r.output;
+    t.cache += r.cache_read + r.cache_write;
+    t.total += totalOf(r); t.cost += costOf(r);
+    if (r.ts > t.ts) t.ts = r.ts;
+    byTask.set(key, t);
+  }
+  for (const t of [...byTask.values()].sort((a, b) => b.total - a.total)) {
+    const chips = [...t.models].map(m =>
+      `<span class="modelchip" style="border-left:3px solid ${colorFor(m)}">${shortModel(m)}</span>`).join('');
+    tbody.insertAdjacentHTML('beforeend', `<tr>
+      <td>${t.dev}</td><td title="${t.ts}">${t.task}</td><td>${chips}</td>
+      <td class="num">${fmtTok(t.input)}</td><td class="num">${fmtTok(t.output)}</td>
+      <td class="num">${fmtTok(t.cache)}</td><td class="num"><b>${fmtTok(t.total)}</b></td>
+      <td class="num">${fmtUsd(t.cost)}</td></tr>`);
+  }
+}
+load();
+</script>
+</body>
+</html>

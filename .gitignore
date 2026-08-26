@@ -10,3 +10,9 @@ node_modules/
 metrics-hub/data/aggregate.json
 metrics-hub/hub.config.runtime.json
 memory/hermes/state/
+
+# Vision telemetry — identidad local del dev
+telemetry/.dev.json
+
+# Vision memory — conexión local del dev a la memoria compartida
+memory/.memory.env

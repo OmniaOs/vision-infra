@@ -1,0 +1,19 @@
+{
+  "_comment": "Bloque que `vision init` fusiona dentro de mcpServers del .mcp.json del repo (preservando servidores existentes como 'dart'). Dos scopes: omnia-memory = namespace del proyecto (aislado por cliente); omnia-memory-global = lecciones reutilizables del equipo. Usa expansión de variables de entorno; ver memory/.memory.env.example. El transporte puede ser 'sse' o 'http' según cómo exponga Mem0 su MCP.",
+  "mcpServers": {
+    "omnia-memory": {
+      "type": "sse",
+      "url": "${OMNIA_MEMORY_MCP_URL}",
+      "headers": {
+        "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}"
+      }
+    },
+    "omnia-memory-global": {
+      "type": "sse",
+      "url": "${OMNIA_MEMORY_GLOBAL_MCP_URL}",
+      "headers": {
+        "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}"
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+#!/bin/sh
+# guardrails pre-push — corre el set crítico de pruebas (money-path) antes del
+# push como compuerta. Solo actúa si el repo define el comando crítico
+# (CRITICAL_TEST_CMD, o script test:critical / test:money en package.json).
+# Habilítalo con:  git config core.hooksPath guardrails/git-hooks
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
+if command -v node >/dev/null 2>&1; then
+  ( cd "$ROOT" && node "$ROOT/guardrails/git-hooks/pre-push-scan.mjs" ) || exit 1
+fi
+exit 0

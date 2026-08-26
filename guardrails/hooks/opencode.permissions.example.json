@@ -1,0 +1,17 @@
+{
+  "_comment": "Ejemplo para opencode. Fusiona la clave `permission` en tu opencode.json. opencode usa un modelo de permisos declarativo (allow/ask/deny, gana la última regla que hace match) en vez de un script; por eso aquí se listan patrones, no un hook. Para lógica más rica, usa un plugin en .opencode/plugins/ que llame a guardrails/checks/lib.mjs.",
+  "permission": {
+    "bash": {
+      "rm -rf *": "deny",
+      "git push --force*": "ask",
+      "git push -f*": "ask",
+      "git reset --hard*": "ask",
+      "*drop database*": "deny",
+      "*drop table*": "deny",
+      "bench * drop-site*": "deny",
+      "*": "allow"
+    },
+    "edit": "allow",
+    "webfetch": "allow"
+  }
+}

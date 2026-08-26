@@ -1,0 +1,3 @@
+{"ts":"2026-07-02T10:15:00.000Z","dev":"_demo","account":"principal","task":"DEMO — feature de ejemplo A","model":"claude-opus-4-8","session":"demo-001","source":"manual","input":48200,"output":21500,"cache_read":812000,"cache_write":95000}
+{"ts":"2026-07-03T16:40:00.000Z","dev":"_demo","account":"principal","task":"DEMO — feature de ejemplo B","model":"claude-sonnet-5","session":"demo-002","source":"manual","input":30100,"output":14800,"cache_read":410000,"cache_write":52000}
+{"ts":"2026-07-04T09:05:00.000Z","dev":"_demo","account":"cuenta-2","task":"DEMO — feature de ejemplo B","model":"claude-opus-4-8","session":"demo-003","source":"manual","input":12500,"output":6900,"cache_read":150000,"cache_write":22000}

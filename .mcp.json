@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "omnia-memory": {
+      "type": "sse",
+      "url": "${OMNIA_MEMORY_MCP_URL}",
+      "headers": {
+        "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}"
+      }
+    },
+    "omnia-memory-global": {
+      "type": "sse",
+      "url": "${OMNIA_MEMORY_GLOBAL_MCP_URL}",
+      "headers": {
+        "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}"
+      }
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node guardrails/checks/precmd.mjs"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|Read|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node guardrails/checks/precmd.mjs"
+          }
+        ]
+      }
+    ]
+  }
+}

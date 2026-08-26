@@ -1,0 +1,12 @@
+{
+  "_comment": "Ejemplo para Cursor (1.7+). Copia esto a .cursor/hooks.json. Cursor comparte el modelo de eventos de Claude Code y añade beforeShellExecution; precmd.mjs ya responde en el formato de Cursor ({permission, agentMessage}). Verifica el esquema exacto en https://cursor.com/docs/hooks al instalar.",
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      { "command": "node guardrails/checks/precmd.mjs" }
+    ],
+    "beforeReadFile": [
+      { "command": "node guardrails/checks/precmd.mjs" }
+    ]
+  }
+}

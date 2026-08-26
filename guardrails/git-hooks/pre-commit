@@ -1,0 +1,9 @@
+#!/bin/sh
+# guardrails pre-commit — bloquea commit de secretos (enforcement universal).
+# Habilítalo con:  git config core.hooksPath guardrails/git-hooks
+# Localiza la raíz del repo para resolver el scanner sin importar el cwd.
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
+if command -v node >/dev/null 2>&1; then
+  node "$ROOT/guardrails/git-hooks/pre-commit-scan.mjs" || exit 1
+fi
+exit 0
