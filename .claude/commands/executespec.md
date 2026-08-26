@@ -85,23 +85,23 @@ Para **cada** spec listada en el resultado del Paso 2:
 
 Lee `vision/constitution.md` completo. Contiene el stack del proyecto, arquitectura, convenciones y módulos ya implementados.
 
-### Paso 4.5 — Sincronizar tarea de ClickUp a "en desarrollo"
+### Paso 4.5 — Sincronizar work item de Plane a "en desarrollo"
 
-Antes de empezar a escribir código, invoca la skill `clickup-sync` para mover la tarea correspondiente al status mapeado como `in-progress`:
+Antes de empezar a escribir código, invoca la skill `plane-sync` para mover el work item correspondiente al status mapeado como `in-progress`:
 
 | IDE | Invocación |
 |-----|------------|
-| Claude Code | `/clickup-sync mark-in-progress <feature-name>` |
-| Cursor | `@clickup-sync mark-in-progress <feature-name>` |
-| Windsurf | `@clickup-sync mark-in-progress <feature-name>` |
-| OpenCode | `/clickup-sync mark-in-progress <feature-name>` |
+| Claude Code | `/plane-sync mark-in-progress <feature-name>` |
+| Cursor | `@plane-sync mark-in-progress <feature-name>` |
+| Windsurf | `@plane-sync mark-in-progress <feature-name>` |
+| OpenCode | `/plane-sync mark-in-progress <feature-name>` |
 | Antigravity | invocación programática según convención |
 
 La skill degrada silenciosamente si:
 
-- ClickUp no está configurado en el constitution.
-- El MCP de ClickUp no está disponible.
-- No encuentra una tarea asociada a la feature.
+- Plane no está configurado en el constitution.
+- El MCP de Plane no está disponible.
+- No encuentra un work item asociado a la feature.
 
 **No bloquees la implementación** si la skill devuelve un caso especial. Anota el output (lo agregarás al mensaje final del Paso 8) y continúa al Paso 5.
 
@@ -166,12 +166,12 @@ Tests ejecutados: <N> pasaron, 0 fallaron.
 
 Status actualizado a `in-progress`.
 
-ClickUp: <output del Paso 4.5 — confirmación, "ya sincronizado", o aviso de no-op>
+Plane: <output del Paso 4.5 — confirmación, "ya sincronizado", o aviso de no-op>
 
 Siguiente paso: cuando valides que todo funciona en tu proyecto, corre /onspecomplete <feature-name> para marcarla como done.
 ```
 
-Si el output de la skill `clickup-sync` en el Paso 4.5 fue uno de los casos especiales de no-op (Caso Especial 2/5/8), incluye esa línea tal cual la devolvió la skill. No la traduzcas ni la reformatees.
+Si el output de la skill `plane-sync` en el Paso 4.5 fue uno de los casos especiales de no-op (Caso Especial 2/5/8), incluye esa línea tal cual la devolvió la skill. No la traduzcas ni la reformatees.
 
 ## Manejo de Errores
 

@@ -1,6 +1,6 @@
 ---
 name: newspec
-description: 'Crea la spec completa de una feature (4 archivos) en modo express por defecto: 2 preguntas obligatorias, todo lo demás se infiere del constitution + ClickUp + exploración del proyecto. El flag --deep activa el modo legacy de 8 rondas con preview por ronda.'
+description: 'Crea la spec completa de una feature (4 archivos) en modo express por defecto: 2 preguntas obligatorias, todo lo demás se infiere del constitution + Plane + exploración del proyecto. El flag --deep activa el modo legacy de 8 rondas con preview por ronda.'
 ---
 
 # /newspec — Crear Spec de una Feature
@@ -63,9 +63,9 @@ Antes de cualquier otra acción:
 
 Este workflow invoca tres skills del framework:
 
-- **`skill-read-constitution`**: al inicio de ambos modos, para obtener las secciones H2 del constitution como contexto del proyecto y leer el bloque `clickup:` si existe.
+- **`skill-read-constitution`**: al inicio de ambos modos, para obtener las secciones H2 del constitution como contexto del proyecto y leer el bloque `plane:` si existe.
 - **`skill-find-related-specs`**: tras obtener una descripción inicial y de nuevo con el nombre final, para detectar similitud con specs existentes.
-- **`clickup-sync list-pending-tasks`**: en modo express, antes de la Pregunta 1, si ClickUp está habilitado en el constitution. En modo deep, en el Paso 5 si aplica.
+- **`plane-sync list-pending-tasks`**: en modo express, antes de la Pregunta 1, si Plane está habilitado en el constitution. En modo deep, en el Paso 5 si aplica.
 
 Invoca cada skill siguiendo la convención de tu IDE (`/<skill> <args>`, `@<skill> <args>`, etc.). El output es texto markdown que inyectas a tu contexto. No dupliques la lógica de esas skills aquí.
 
@@ -77,7 +77,7 @@ El modo express es el default. Su contrato es: **2 preguntas obligatorias** al u
 
 - El constitution (stack, convenciones, módulos existentes).
 - La estructura actual de `vision/specs/`.
-- La descripción de la tarea de ClickUp (si la feature viene de ahí).
+- La descripción del work item de Plane (si la feature viene de ahí).
 - La exploración profunda del proyecto.
 - `find-related-specs`.
 
@@ -87,16 +87,16 @@ Si el mensaje de invocación contiene un bloque de texto largo (> 200 caracteres
 
 ### Paso E2 — Invocar skills de contexto
 
-1. Invoca `skill-read-constitution`. Guarda secciones H2 y, si existe, el bloque `clickup:` parseado.
+1. Invoca `skill-read-constitution`. Guarda secciones H2 y, si existe, el bloque `plane:` parseado.
 2. Lista los subdirectorios directos de `vision/specs/`. Estas son las categorías existentes.
 3. Enumera las specs ya escritas dentro de cada categoría (solo nombres de carpeta).
 
-### Paso E3 — Listar tareas de ClickUp pendientes (si aplica)
+### Paso E3 — Listar work items de Plane pendientes (si aplica)
 
-Si el bloque `clickup:` del constitution tiene `enabled: true`:
+Si el bloque `plane:` del constitution tiene `enabled: true`:
 
-1. Invoca `clickup-sync list-pending-tasks`.
-2. Guarda la lista de tareas pendientes (id, name, description, url) en memoria. Si el output es un caso especial de no-op (MCP ausente, lista vacía, etc.), continúa sin lista — la integración degrada silenciosamente.
+1. Invoca `plane-sync list-pending-tasks`.
+2. Guarda la lista de work items pendientes (identifier, name, description) en memoria. Si el output es un caso especial de no-op (MCP ausente, lista vacía, etc.), continúa sin lista — la integración degrada silenciosamente.
 
 ### Paso E4 — Pregunta 1: Origen de la feature
 
@@ -105,9 +105,9 @@ Muestra al usuario:
 ```
 **Pregunta 1/2:** ¿De dónde viene esta feature?
 
-a) [Si hay tareas pendientes en ClickUp] Tarea de ClickUp:
-   1. <id> — <name>
-   2. <id> — <name>
+a) [Si hay work items pendientes en Plane] Work item de Plane:
+   1. <identifier> — <name>
+   2. <identifier> — <name>
    ...
 
 b) Pendiente del backlog sin spec aún:
@@ -120,11 +120,11 @@ c) Una idea nueva — descríbela en 1-2 párrafos.
 Tu respuesta:
 ```
 
-Si no hay tareas pendientes en ClickUp ni backlog sin spec, omite las opciones vacías y pide la descripción libre.
+Si no hay work items pendientes en Plane ni backlog sin spec, omite las opciones vacías y pide la descripción libre.
 
 Procesa la respuesta:
 
-- Si elige una tarea de ClickUp → guarda `clickup_task_id`, `clickup_task_url`, y usa `name + description` como **descripción inicial** de la feature.
+- Si elige un work item de Plane → guarda `plane_workitem_id` (el identificador humano, ej. `ENG-42`), y usa `name + description` como **descripción inicial** de la feature.
 - Si elige un item del backlog → usa el nombre del backlog como **nombre tentativo** y pide al agente inferir la descripción del contexto (constitution + nombre).
 - Si responde con texto libre → usa ese texto como **descripción inicial**.
 
@@ -137,7 +137,7 @@ Sin tope de archivos, siguiendo la priorización de la sección "Exploración de
 Aplica las mismas reglas de la sección "Propuesta de Nombre y Categoría" pero **sin preguntar**:
 
 1. Si la feature viene del backlog, el nombre ya está fijado.
-2. Si viene de ClickUp o de descripción libre, infiere un nombre kebab-case con la heurística estándar (sustantivos principales, convención observada, vocabulario del constitution).
+2. Si viene de Plane o de descripción libre, infiere un nombre kebab-case con la heurística estándar (sustantivos principales, convención observada, vocabulario del constitution).
 3. Infiere la categoría según el tipo (comando del framework → `commands/`, skill → `skills/`, módulo interno → `core/`, UI → `ui/`, API → `api/`, datos → `data/`).
 
 Las inferencias del nombre y la categoría se documentan en el preview global final y el usuario puede corregirlas ahí.
@@ -148,7 +148,7 @@ Con el nombre inferido. Si el top resultado tiene `relevance ≥ 0.70`, **detect
 
 ### Paso E8 — Generar los 4 archivos en memoria
 
-Con el contexto reunido (constitution + estructura + tarea de ClickUp + descripción + exploración + specs relacionadas + prellenado), genera los 4 archivos completos. Sigue las plantillas de la sección "Generación de los 4 Archivos" y respeta la profundidad mínima.
+Con el contexto reunido (constitution + estructura + work item de Plane + descripción + exploración + specs relacionadas + prellenado), genera los 4 archivos completos. Sigue las plantillas de la sección "Generación de los 4 Archivos" y respeta la profundidad mínima.
 
 Para cada sección que falte fuente:
 
@@ -163,7 +163,7 @@ Antes de mostrar el preview, evalúa si hay lagunas críticas que invaliden la s
 
 | Laguna crítica | Disparador | Pregunta dirigida |
 |---|---|---|
-| Descripción inicial muy corta | < 50 caracteres y no viene de ClickUp con description | "La descripción es muy escueta. ¿Puedes ampliar qué resuelve la feature y para quién?" |
+| Descripción inicial muy corta | < 50 caracteres y no viene de Plane con description | "La descripción es muy escueta. ¿Puedes ampliar qué resuelve la feature y para quién?" |
 | Categoría no inferible con confianza | Constitution no describe arquitectura clara y la feature no encaja en ninguna categoría existente con score > 0.5 | "No puedo inferir la categoría con confianza. ¿La pongo en `<opt1>`, `<opt2>` o creas una nueva?" |
 | Sin escenarios negativos | El contrato generado tiene 0 escenarios de error | "No detecté escenarios de error en lo que describiste. ¿Qué pasa si X falla, es cancelado o tiene input inválido?" |
 | Spec relacionada con relevance ≥ 0.70 (Paso E7) | Ver Paso E7 | Ver Paso E7 |
@@ -197,7 +197,7 @@ Muestra los 4 archivos completos + cambios planificados a `backlog.md` y `vision
 ### Preview global
 
 — vision/specs/<categoria>/<feature-name>/0_contract.md —
-[contenido completo, incluyendo clickup_task_id en frontmatter si aplica]
+[contenido completo, incluyendo plane_workitem_id en frontmatter si aplica]
 
 — vision/specs/<categoria>/<feature-name>/1_spec.md —
 [contenido completo]
@@ -216,7 +216,7 @@ En Sprint <N> — <nombre>, agregar:
 Agregar entry con status: pending, position: <N+1>.
 
 Supuestos detectados (si los hay): [lista de líneas `> Supuesto: ...`]
-Inferencias clave: nombre → <X>, categoría → <Y>, fuente → <ClickUp/backlog/idea libre>.
+Inferencias clave: nombre → <X>, categoría → <Y>, fuente → <Plane/backlog/idea libre>.
 
 ¿Escribir todo? (sí / editar <seccion> / cancelar)
 ```
@@ -266,17 +266,17 @@ Detecté estas features pendientes en el backlog:
 3. feature-c
 ...
 
-Si ClickUp está configurado, también:
-[lista de tareas pendientes en ClickUp]
+Si Plane está configurado, también:
+[lista de work items pendientes en Plane]
 
 Opciones:
 a) Elegir una del backlog (número).
-b) Elegir una tarea de ClickUp.
+b) Elegir un work item de Plane.
 c) Describir una idea nueva que aún no está en el backlog.
 d) Cancelar.
 ```
 
-Extrae una **descripción inicial** de la elección o la descripción libre del usuario. Si elige tarea de ClickUp, guarda `clickup_task_id` y `clickup_task_url`.
+Extrae una **descripción inicial** de la elección o la descripción libre del usuario. Si elige un work item de Plane, guarda `plane_workitem_id` (el identificador humano, ej. `ENG-42`).
 
 ### Paso D5 — Invocar `find-related-specs`
 
@@ -534,7 +534,7 @@ Tras todas las rondas (deep) o tras la generación inicial (express), antes de e
 Secciones H2 en este orden:
 
 1. Título H1: `# Feature: <Nombre con espacios>`
-2. `## Metadata` (YAML con `status: pending`, `created: YYYY-MM-DD`, `updated: YYYY-MM-DD`, `dependencies: ...`, `position: N`, `clickup_task_id: <id o null>`)
+2. `## Metadata` (YAML con `status: pending`, `created: YYYY-MM-DD`, `updated: YYYY-MM-DD`, `dependencies: ...`, `position: N`, `plane_workitem_id: <identificador o null>`)
 3. `## User Stories` (formato `**Como** X **Quiero** Y **Para** Z`, mínimo 2)
 4. `## Naturaleza del Artefacto` (si es workflow/skill/template)
 5. `## Propósito`
@@ -542,7 +542,7 @@ Secciones H2 en este orden:
 7. `## Alcance` con `### Incluye:` y `### No incluye:`
 8. `## Dependencias` con subsecciones `### Esta feature depende de:` y `### Esta feature es requerida por:`
 9. `## Impacto`
-10. `## Notas de Implementación` (opcional; si la feature viene de ClickUp, incluye link a la tarea)
+10. `## Notas de Implementación` (opcional; si la feature viene de Plane, incluye el identificador del work item)
 
 ### Plantilla de `1_spec.md`
 
@@ -640,8 +640,8 @@ Spec lista en vision/specs/<categoria>/<feature-name>/.
 
 Backlog actualizado en Sprint <N> — <nombre>. vision-status.json sincronizado.
 
-[Si vino de ClickUp]
-Asociada a tarea ClickUp: <task.url>
+[Si vino de Plane]
+Asociada a work item de Plane: <plane_workitem_id>
 
 Próximo paso:
 - Para implementar: corre /executespec <feature-name>.
@@ -674,7 +674,7 @@ Hubo un error al escribir: <detalle>. Hice rollback completo: todos los archivos
 | `find-related-specs` devuelve relevance ≥ 0.70 | Avisar al usuario y sugerir `/modifyspec` |
 | Cancelación | Rollback, nada escrito |
 | Falla escritura final | Rollback total |
-| ClickUp no disponible o `enabled: false` | Continuar sin lista de tareas; modo express usa solo backlog + idea libre en Pregunta 1 |
+| Plane no disponible o `enabled: false` | Continuar sin lista de work items; modo express usa solo backlog + idea libre en Pregunta 1 |
 
 ## Resumen de Invariantes
 
@@ -689,5 +689,5 @@ Hubo un error al escribir: <detalle>. Hice rollback completo: todos los archivos
 - Escritura atómica al final; rollback completo si algo falla.
 - `1_spec.md` contiene ejemplos de código, snippets y pseudocódigo.
 - Los 4 archivos cumplen la profundidad mínima.
-- `find-related-specs`, `read-constitution` y `clickup-sync` se invocan como skills externas; no duplicas su lógica.
-- Si la feature viene de una tarea de ClickUp, el `0_contract.md` lleva `clickup_task_id` en el frontmatter.
+- `find-related-specs`, `read-constitution` y `plane-sync` se invocan como skills externas; no duplicas su lógica.
+- Si la feature viene de un work item de Plane, el `0_contract.md` lleva `plane_workitem_id` en el frontmatter.

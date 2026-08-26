@@ -162,23 +162,23 @@ Si **cualquiera** falla a mitad:
   ```
 - Termina.
 
-### Paso 8.5 — Sincronizar tarea de ClickUp como "completada"
+### Paso 8.5 — Sincronizar work item de Plane como "completado"
 
-Tras la escritura exitosa de los 4 archivos (Paso 8), invoca la skill `clickup-sync` para cerrar la tarea correspondiente:
+Tras la escritura exitosa de los 4 archivos (Paso 8), invoca la skill `plane-sync` para cerrar el work item correspondiente:
 
 | IDE | Invocación |
 |-----|------------|
-| Claude Code | `/clickup-sync mark-done <feature-name>` |
-| Cursor | `@clickup-sync mark-done <feature-name>` |
-| Windsurf | `@clickup-sync mark-done <feature-name>` |
-| OpenCode | `/clickup-sync mark-done <feature-name>` |
+| Claude Code | `/plane-sync mark-done <feature-name>` |
+| Cursor | `@plane-sync mark-done <feature-name>` |
+| Windsurf | `@plane-sync mark-done <feature-name>` |
+| OpenCode | `/plane-sync mark-done <feature-name>` |
 | Antigravity | invocación programática según convención |
 
 La skill degrada silenciosamente si:
 
-- ClickUp no está configurado en el constitution.
-- El MCP de ClickUp no está disponible.
-- No encuentra una tarea asociada a la feature.
+- Plane no está configurado en el constitution.
+- El MCP de Plane no está disponible.
+- No encuentra un work item asociado a la feature.
 
 **No hagas rollback** si la skill devuelve un caso especial. La fuente de verdad del framework son los 4 archivos markdown + `vision-status.json`, y esos ya quedaron escritos. Anota el output para el mensaje final.
 
@@ -195,12 +195,12 @@ Actualizaciones aplicadas:
 - vision-status.json: status → done, completedAt → YYYY-MM-DD.
 - 0_contract.md de la feature: status → done.
 
-ClickUp: <output del Paso 8.5 — confirmación, "ya sincronizado", o aviso de no-op>
+Plane: <output del Paso 8.5 — confirmación, "ya sincronizado", o aviso de no-op>
 
 Ciclo de la feature cerrado.
 ```
 
-Si el output de la skill `clickup-sync` en el Paso 8.5 fue un caso especial de no-op, incluye la línea tal cual la devolvió la skill.
+Si el output de la skill `plane-sync` en el Paso 8.5 fue un caso especial de no-op, incluye la línea tal cual la devolvió la skill.
 
 ## Formato del Entry en Constitution
 

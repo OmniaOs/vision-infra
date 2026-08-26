@@ -63,7 +63,7 @@ Formula estas preguntas en orden. Puedes proponer una respuesta inferida de las 
 6. **Convenciones clave** (naming, estructura, manejo de errores) — breve.
 7. **Listado de features principales del proyecto**: pide al usuario enumerarlas separadas por comas o saltos de línea.
 
-La pregunta sobre la integración con ClickUp **no** va aquí; vive en el Paso 4.5 porque requiere acceso a herramientas MCP que no son parte del cuestionario base.
+La pregunta sobre la integración con Plane **no** va aquí; vive en el Paso 4.5 porque requiere acceso a herramientas MCP que no son parte del cuestionario base.
 
 Si al inicio el usuario pega un README detallado o un bloque de texto grande, úsalo como respuesta global y salta las preguntas específicas que ya estén cubiertas.
 
@@ -73,84 +73,86 @@ Construye el texto completo de `vision/constitution.md`:
 
 - Reemplaza los placeholders del template con las respuestas.
 - **Preserva la sección `## Módulos Implementados` del snapshot original** (o restaura el placeholder del template si no existía). Esta sección no la tocas tú; es responsabilidad de `/onspecomplete`.
-- **Preserva el bloque `## Integración ClickUp`** del snapshot original si ya existía con `enabled: true`. Si no existía, lo dejas con la plantilla por defecto (`enabled: false`) — el Paso 4.5 lo sobrescribe si el usuario decide habilitar la integración.
+- **Preserva el bloque `## Integración Plane`** del snapshot original si ya existía con `enabled: true`. Si no existía, lo dejas con la plantilla por defecto (`enabled: false`) — el Paso 4.5 lo sobrescribe si el usuario decide habilitar la integración.
 
 Construye el texto completo de `vision/backlog.md`:
 
 - Mantén la cabecera (bloque de variables HTML, `# Backlog:`, `## Metadata`, sección `## Sobre este backlog`).
 - Reemplaza el marker `<!-- BACKLOG_EMPTY: true ... -->` por los sprints y sus features.
 
-### Paso 4.5 — Configuración opcional de ClickUp
+### Paso 4.5 — Configuración opcional de Plane
 
 Pregunta una sola vez:
 
-> ¿Quieres conectar este proyecto con ClickUp para que las tareas se sincronicen automáticamente con el ciclo de vida de las features (pending → in-progress → done)? (sí / no)
+> ¿Quieres conectar este proyecto con Plane para que los work items se sincronicen automáticamente con el ciclo de vida de las features (pending → in-progress → done)? (sí / no)
 
-- Si responde `no` → el bloque `clickup:` queda con `enabled: false`. Salta al Paso 5.
+- Si responde `no` → el bloque `plane:` queda con `enabled: false`. Salta al Paso 5.
 - Si responde `sí` → ejecuta los subpasos siguientes.
 
-#### Paso 4.5.a — Verificar disponibilidad del MCP de ClickUp
+#### Paso 4.5.a — Verificar disponibilidad del MCP de Plane
 
-Comprueba si las herramientas MCP con prefijo `clickup_` están disponibles. Si **no** lo están:
+Comprueba si las herramientas MCP `workitem` y `state` (del servidor `plane`) están disponibles. A diferencia de ClickUp, el MCP de Plane no prefija sus herramientas por integración — despacha operaciones internamente vía un parámetro `action` sobre herramientas por recurso (`workitem`, `state`, `project`, `workitem_property`, …). Si **no** están disponibles:
 
-> El MCP de ClickUp no está conectado en este IDE. Salté la configuración. Cuando lo conectes, vuelve a correr `/setup` para configurar la integración.
+> El MCP de Plane no está conectado en este IDE. Salté la configuración. Cuando lo conectes, vuelve a correr `/setup` para configurar la integración.
 
-Marca `clickup.enabled = false` y salta al Paso 5.
+Marca `plane.enabled = false` y salta al Paso 5.
 
-#### Paso 4.5.b — Descubrir workspace y list
+#### Paso 4.5.b — Descubrir proyecto
 
-1. Llama a la herramienta MCP `clickup_get_workspace_hierarchy`. El output contiene workspaces, spaces, folders y lists.
-2. Si hay **un solo workspace** → úsalo directo. Si hay varios, muéstralos numerados al usuario y pídele elegir.
-3. Dentro del workspace elegido, muestra al usuario la jerarquía como una lista plana de listas accesibles, formato:
+El servidor MCP de Plane ya tiene fijado su workspace (vía la variable de entorno `PLANE_WORKSPACE_SLUG` de su propia configuración), así que no hay que descubrir workspace como en ClickUp — solo el **proyecto** dentro de ese workspace.
+
+1. Llama a la herramienta MCP `project` con `action: "list"`. Es de solo lectura y no requiere parámetros obligatorios (acepta `cursor`, `per_page`, `order_by` opcionales). Cada resultado incluye al menos `id` (UUID) y `name`, y normalmente `identifier` (el prefijo corto usado en los identificadores humanos de work items, ej. `ENG` en `ENG-42`).
+2. Si la llamada tiene éxito y devuelve proyectos, muéstralos numerados al usuario:
    ```
-   1. <space> / <folder> / <list-name>  (id: <list_id>)
+   1. <name> (<identifier>) — id: <id>
    2. ...
    ```
-4. Pregunta: `¿En qué lista viven las tareas de este proyecto? (número)`.
-5. Guarda `workspace_id` y `list_id`.
+   Pregunta: `¿En qué proyecto viven los work items de este repo? (número)`. Guarda su `id` como `project_id`.
+3. Si la herramienta `project` **no está disponible**, o la llamada falla, o no puedes confirmar con certeza el resultado: no inventes una herramienta ni un id. Pide directamente:
+   > Pega el `project_id` de tu proyecto en Plane (lo ves en la URL del proyecto dentro de `management.omniaos.ai`, o pídeselo a quien administra el workspace).
+   Usa el valor que el usuario pegue como `project_id`, sin más validación que "no está vacío".
 
 #### Paso 4.5.c — Mapear status
 
-1. Llama a `clickup_get_list` con el `list_id` elegido. Lee el array de status disponibles.
-2. Muestra al usuario los nombres reales de los status:
+1. Llama a `state` con `action: "list"` y el `project_id` elegido. Lee el array de estados disponibles.
+2. Muestra al usuario los nombres reales de los estados:
    ```
-   Status disponibles en la lista: [<status1>, <status2>, <status3>, ...]
+   Estados disponibles en el proyecto: [<estado1>, <estado2>, <estado3>, ...]
    ```
 3. Pregunta tres veces (una por categoría del framework):
    - `¿Cuál corresponde a "pendiente" (Vision V2: pending)?` → propón el primero por defecto.
    - `¿Cuál corresponde a "en desarrollo" (Vision V2: in-progress)?`
    - `¿Cuál corresponde a "completada" (Vision V2: done)?` → propón el último por defecto.
-4. Guarda los tres nombres exactos en `status_map`.
+4. Guarda los tres nombres exactos en `status_map`. Recuerda: se guardan como **nombres**, no como UUID — la skill `plane-sync` resuelve el UUID real en cada invocación (los estados de un proyecto pueden cambiar de id si se recrean).
 
-#### Paso 4.5.d — Método de match feature ↔ tarea
+#### Paso 4.5.d — Método de match feature ↔ work item
 
 Pregunta:
 
-> ¿Cómo asocias una feature de Vision V2 con su tarea de ClickUp?
+> ¿Cómo asocias una feature de Vision V2 con su work item de Plane?
 >
-> a) Por nombre: el título de la tarea en ClickUp == el nombre de la feature en kebab-case (recomendado para empezar).
-> b) Por custom field: la lista tiene un campo personalizado (ej. "Vision Feature Name") cuyo valor es el nombre de la feature.
+> a) Por nombre: el título del work item en Plane == el nombre de la feature en kebab-case (recomendado para empezar).
+> b) Por propiedad personalizada: el proyecto tiene una propiedad (ej. "Vision Feature Name") cuyo valor es el nombre de la feature.
 
 - Si elige `a` → `task_match.method = "by-name"`, `custom_field_name = null`.
 - Si elige `b`:
-  - Llama `clickup_get_custom_fields` con el `list_id`.
-  - Muestra los campos disponibles numerados.
-  - Pregunta cuál es el del Vision feature name.
-  - `task_match.method = "by-custom-field"`, `custom_field_name = <nombre del campo>`.
+  - Llama `workitem_property` con `action: "list"` y el `project_id`.
+  - Muestra las propiedades disponibles numeradas.
+  - Pregunta cuál es la del Vision feature name.
+  - `task_match.method = "by-custom-field"`, `custom_field_name = <nombre de la propiedad>`.
 
 #### Paso 4.5.e — Construir bloque YAML
 
-Reemplaza el bloque `clickup:` del constitution con:
+Reemplaza el bloque `plane:` del constitution con:
 
 ```yaml
-clickup:
+plane:
   enabled: true
-  workspace_id: "<workspace_id>"
-  list_id: "<list_id>"
+  project_id: "<project_id>"
   status_map:
-    pending: "<status_real_pending>"
-    in-progress: "<status_real_in_progress>"
-    done: "<status_real_done>"
+    pending: "<estado_real_pending>"
+    in-progress: "<estado_real_in_progress>"
+    done: "<estado_real_done>"
   task_match:
     method: "<by-name | by-custom-field>"
     custom_field_name: <null | "<nombre>">
@@ -244,4 +246,4 @@ Para que no haya duda:
 - No generes archivos `0_contract.md`, `1_spec.md`, `2_acceptance-criteria.md`, `3_test-plan.md` de ninguna feature.
 - No aceptes archivo con respuestas prellenadas como input (eso es `/newspec`).
 - No propongas nombres para las features (eso es `/newspec` al crear cada spec).
-- No leas tareas de ClickUp ni las modifiques desde aquí. La integración con ClickUp solo se **configura** en este workflow (Paso 4.5); la lectura/sync vive en la skill `clickup-sync` y la invocan los workflows `/newspec`, `/executespec` y `/onspecomplete`.
+- No leas work items de Plane ni los modifiques desde aquí. La integración con Plane solo se **configura** en este workflow (Paso 4.5); la lectura/sync vive en la skill `plane-sync` y la invocan los workflows `/newspec`, `/executespec` y `/onspecomplete`.
