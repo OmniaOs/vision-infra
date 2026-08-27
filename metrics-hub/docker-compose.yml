@@ -7,6 +7,13 @@ services:
     build: .
     image: omnia/metrics-hub:latest
     restart: unless-stopped
+    # BasicAuth vía Traefik (ver vision/specs/services/expose-metrics-hub-domain/).
+    # '$' del hash bcrypt escapado a '$$' (Docker Compose interpola '$' como var).
+    # El hash es seguro de versionar (unidireccional); la contraseña en texto
+    # plano nunca se guarda en este ni en ningún otro archivo del repo.
+    labels:
+      - "traefik.http.middlewares.metrics-auth.basicauth.users=daniel@omniaos.ai:$$2y$$05$$RSfpkDYnWfHdteDgZDjepuozu4ogao0vW3qnJLi8GIHufdnVlgESi"
+      - "coolify.traefik.middlewares=metrics-auth"
     environment:
       # Repos a agregar (CSV owner/repo).
       - HUB_REPOS=${HUB_REPOS:-OmniaOs/OmniaPOS,OmniaOs/VisionFramework,OmniaOs/frutal,OmniaOs/weritas}
