@@ -8,6 +8,8 @@ version: 1
 last_updated: 2026-08-26
 ```
 
+> **Nota (2026-08-26, vía `/modifyspec`):** AC-005, AC-009 y AC-012 se reescribieron tras descubrir que esta instalación de Coolify no tiene UI de labels para recursos Docker Compose. Ver `1_spec.md` → Historial de Cambios.
+
 ## Resumen Ejecutivo
 
 Total de criterios: **12**, agrupados en 4 categorías:
@@ -51,11 +53,11 @@ Todos los criterios se verifican manualmente (curl + navegador + inspección de 
 **When** se intenta `curl http://148.113.203.22:4320` desde una máquina fuera del VPS (no vía el dominio ni vía túnel SSH),
 **Then** la conexión se rechaza o hace timeout — el mismo comportamiento que antes de implementar esta feature. Si la conexión se establece, es una regresión de seguridad y esta feature debe considerarse fallida, no exitosa.
 
-### AC-005: `metrics-hub/docker-compose.yml` no cambia
+### AC-005: `metrics-hub/docker-compose.yml` solo cambia en el bloque `labels:`
 
 **Given** el repo antes de implementar esta feature,
 **When** se compara `metrics-hub/docker-compose.yml` antes y después de completar la implementación (ej. `git diff` sobre ese archivo),
-**Then** el diff está vacío — el archivo es idéntico, en particular la línea `- "127.0.0.1:4320:4320"` bajo `ports:`.
+**Then** el diff toca únicamente un bloque `labels:` agregado al servicio `metrics-hub` — la línea `- "127.0.0.1:4320:4320"` bajo `ports:`, y las secciones `environment`, `image`, `volumes`, `build`, `restart`, permanecen exactamente iguales.
 
 ### AC-006: El acceso por túnel SSH sigue funcionando como fallback
 
@@ -79,11 +81,11 @@ Todos los criterios se verifican manualmente (curl + navegador + inspección de 
 **When** se visita `https://<dominio>/` con un cliente que valida certificados (navegador o `curl` sin `-k`),
 **Then** la conexión TLS se establece sin advertencias de certificado inválido o autofirmado (certificado emitido por Let's Encrypt vía Coolify).
 
-### AC-009: El middleware Traefik está aplicado al router correcto de `metrics-hub` y no a otros recursos
+### AC-009: El middleware Traefik quedó efectivamente activo en `metrics-hub` y no afecta a otros recursos
 
-**Given** las labels `traefik.http.middlewares.metrics-auth.basicauth.users` y `traefik.http.routers.<router-name>.middlewares=metrics-auth` fueron agregadas al recurso `metrics-hub` en Coolify,
-**When** se inspeccionan las labels efectivas del recurso `metrics-hub` (vía la consola de Coolify) y se prueba acceder a los dominios de `gateway` y `memory`,
-**Then** `<router-name>` corresponde efectivamente al router de `metrics-hub` (no al de otro recurso), y los dominios de `gateway`/`memory` siguen respondiendo exactamente igual que antes de esta feature (sin BasicAuth agregado por error).
+**Given** las labels `traefik.http.middlewares.metrics-auth.basicauth.users` y `coolify.traefik.middlewares=metrics-auth` fueron agregadas al servicio `metrics-hub` en `docker-compose.yml` y desplegadas,
+**When** se inspeccionan las labels efectivas del contenedor real corriendo en el VPS (`docker inspect <container> | grep traefik`, vía OCC o SSH — no basta con mirar el archivo fuente, ver INV-9 de `1_spec.md`) y se prueba acceder a los dominios de `gateway` y `memory`,
+**Then** el middleware `metrics-auth` aparece efectivamente atado al router de `metrics-hub` en las labels del contenedor real, y los dominios de `gateway`/`memory` siguen respondiendo exactamente igual que antes de esta feature (sin BasicAuth agregado por error).
 
 ### AC-010: El redeploy no requiere rebuild de imagen
 
@@ -101,11 +103,11 @@ Todos los criterios se verifican manualmente (curl + navegador + inspección de 
 **When** se lee la sección `### \`metrics-hub/\`` de `DEPLOY_COOLIFY.md`,
 **Then** ya no dice "sin dominio configurado" — indica el dominio real elegido y menciona el middleware BasicAuth vía Coolify, consistente con lo documentado para `gateway` y `memory` en el mismo archivo.
 
-### AC-012: El hash de credenciales nunca se committea al repo
+### AC-012: La contraseña en texto plano nunca se committea al repo (el hash sí, por diseño)
 
-**Given** el hash bcrypt generado en el Paso 1 de `1_spec.md` se usó solo para configurar las labels de Coolify,
-**When** se busca ese hash (o cualquier hash con el patrón `$2y$` / `$2a$` / `$2b$`) en el historial de git del repo (`git log -p` o `git grep`),
-**Then** no aparece ningún resultado — las credenciales viven únicamente en la config de Coolify, nunca en un commit de este repositorio (confirma INV-5 de `1_spec.md`).
+**Given** el hash bcrypt generado en el Paso 1 de `1_spec.md` se agregó intencionalmente a `metrics-hub/docker-compose.yml` en el commit de esta feature,
+**When** se inspecciona ese commit (`git show <commit>` o el diff del Paso 3 de `1_spec.md`),
+**Then** el hash bcrypt (patrón `$2y$` / `$2a$` / `$2b$`, con `$` escapado a `$$`) aparece efectivamente en el diff — confirma que la implementación siguió el diseño — y en ningún lugar del mismo commit, mensaje de commit, ni ningún otro archivo del repo aparece la contraseña en texto plano usada para generarlo (confirma INV-5 de `1_spec.md`).
 
 ---
 
@@ -123,8 +125,9 @@ Todos los criterios se verifican manualmente (curl + navegador + inspección de 
 | Alcance → Incluye: documentar dominio en `DEPLOY_COOLIFY.md` | AC-011 |
 | Invariante INV-3 (401 antes de llegar a la app) | AC-002, AC-003 |
 | Invariante INV-4 (puerto directo sigue bloqueado) | AC-004 |
-| Invariante INV-5 (credenciales nunca committeadas) | AC-012 |
+| Invariante INV-5 (hash sí se commitea; contraseña en texto plano nunca) | AC-012 |
 | Invariante INV-6 (middleware específico, sin colisión) | AC-009 |
+| Invariante INV-9 (verificación empírica obligatoria, no basta con el archivo) | AC-009 |
 | Notas de Implementación (fallback SSH sigue vivo) | AC-006 |
 
 ## Notas
@@ -132,7 +135,7 @@ Todos los criterios se verifican manualmente (curl + navegador + inspección de 
 - No hay criterios de aceptación sobre "performance" o "carga" — `metrics-hub` es un dashboard estático de bajo tráfico interno; no aplica.
 - AC-004 es el criterio más crítico de todo el set: valida que la feature no reintroduce el patrón exacto del incidente del 20-jul-2026 (puerto expuesto sin auth). Si solo se puede verificar un criterio antes de dar la feature por completa, es este.
 - Los criterios de esta sección se verifican en el orden en que aparecen dentro de `3_test-plan.md`, no necesariamente en el orden AC-001…AC-012 (la validación real agrupa por comando de `curl`, no por AC).
-- Ningún criterio de este set requiere modificar `metrics-hub/docker-compose.yml`, `Dockerfile` ni el código de `metrics-hub/scripts/`/`metrics-hub/dashboard/` — si al verificar algún AC parece necesario tocar esos archivos, es una señal de que la implementación se desvió del alcance de `0_contract.md` y conviene revisar el enfoque antes de seguir.
+- AC-005 y AC-012 sí involucran `metrics-hub/docker-compose.yml` — es, tras el rediseño de `/modifyspec` (2026-08-26), el único archivo de código que esta feature modifica, y solo en su bloque `labels:`. Si al verificar algún AC parece necesario tocar `Dockerfile`, `docker-entrypoint.sh`, `scripts/` o `dashboard/`, es una señal de que la implementación se desvió del alcance de `0_contract.md` y conviene revisar el enfoque antes de seguir.
 - Todos los criterios son verificables por una sola persona (quien tiene acceso a Coolify y al VPS) sin coordinación adicional con terceros — no hay AC que dependa de una acción de otro miembro del equipo, lo cual mantiene esta feature ejecutable de punta a punta en una sola sesión de trabajo.
 
 ## Definición de "Hecho" para esta feature

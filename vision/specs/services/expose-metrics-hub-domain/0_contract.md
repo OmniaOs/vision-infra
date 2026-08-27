@@ -11,6 +11,8 @@ position: 1
 plane_workitem_id: null
 ```
 
+> **Nota (2026-08-26, vía `/modifyspec`):** esta versión del contrato refleja un descubrimiento posterior a la escritura inicial — esta instalación de Coolify no tiene UI de labels para recursos Docker Compose, así que `metrics-hub/docker-compose.yml` sí cambia como parte de esta feature. Ver `1_spec.md` → Historial de Cambios para el detalle completo.
+
 ## User Stories
 
 **Como** Daniel (PM / dueño entrante de vision-infra) **Quiero** poder abrir el leaderboard de `metrics-hub` desde una URL fija y autenticada **Para** revisar el ranking de commits/tokens del equipo sin tener que abrir un túnel SSH manual cada vez.
@@ -21,7 +23,7 @@ plane_workitem_id: null
 
 ## Naturaleza del Artefacto
 
-Esta feature **no es código de aplicación**. Es una acción operativa de infraestructura ejecutada a mano en la consola web de Coolify (dueño: Daniel, quien ya tiene acceso), más una edición puntual de documentación (`DEPLOY_COOLIFY.md`). No hay PR de código sobre `metrics-hub/` — el `docker-compose.yml` del servicio no cambia.
+Esta feature **no es código de aplicación**, pero sí incluye un cambio de código acotado y deliberado. Es principalmente una acción operativa de infraestructura ejecutada a mano en la consola web de Coolify (dueño: Daniel, quien ya tiene acceso), más una edición puntual de `metrics-hub/docker-compose.yml` (dos labels de Traefik) y de documentación (`DEPLOY_COOLIFY.md`). No hay cambios a la lógica de aplicación de `metrics-hub` — `scripts/`, `dashboard/` y `Dockerfile` no se tocan.
 
 Por esto, `1_spec.md` describe pasos de consola y bloques de configuración (labels de Traefik), no interfaces de programación; y `3_test-plan.md` es validación manual (curl + navegador), no una suite automatizada — el repo no tiene harness de test para config de infraestructura de Coolify.
 
@@ -31,7 +33,7 @@ Desde el fix de seguridad del commit `82cba23` (24-jul-2026, post-incidente del 
 
 `metrics-hub` (puerto 4320, ver `metrics-hub/docker-compose.yml`) es un dashboard estático servido por `scripts/serve.mjs` **sin ninguna autenticación incorporada** (confirmado leyendo `docker-entrypoint.sh` y `dashboard/index.html`: no hay lógica de login, sesión ni verificación de credenciales en el código). Por eso no se puede simplemente quitarle el binding a loopback y publicarlo a `0.0.0.0` — sería repetir exactamente el error que causó el incidente del 20-jul-2026.
 
-La solución de esta feature es agregar un dominio Coolify a `metrics-hub` protegido con Traefik BasicAuth, configurado enteramente desde la consola de Coolify (dominio + labels de proxy avanzado), sin tocar `docker-compose.yml`. Esto funciona porque el proxy Traefik de Coolify (`coolify-proxy`) alcanza los contenedores por la red interna de Docker (container-to-container), no a través del puerto publicado al host — el binding a `127.0.0.1:4320` es irrelevante para ese camino de tráfico.
+La solución de esta feature es agregar un dominio Coolify a `metrics-hub` protegido con Traefik BasicAuth: el dominio se agrega desde la consola de Coolify, y el middleware BasicAuth se declara como labels directamente en `metrics-hub/docker-compose.yml` (no hay una pestaña de labels en la UI de Coolify para recursos tipo Docker Compose en esta instalación — confirmado). Esto funciona porque el proxy Traefik de Coolify (`coolify-proxy`) alcanza los contenedores por la red interna de Docker (container-to-container), no a través del puerto publicado al host — el binding a `127.0.0.1:4320` es irrelevante para ese camino de tráfico.
 
 ## Escenarios
 
@@ -45,24 +47,24 @@ La solución de esta feature es agregar un dominio Coolify a `metrics-hub` prote
 
 **E — Dominio mal propagado (edge case operativo).** El DNS del dominio elegido todavía no resuelve a la IP del VPS, o el certificado TLS de Coolify (Let's Encrypt) aún no se emitió. El dashboard no es alcanzable por el dominio durante ese período; el túnel SSH manual sigue funcionando como fallback mientras tanto — esta feature no lo reemplaza, lo complementa.
 
-**F — Middleware mal atado al router (edge case de configuración).** Las labels se agregan correctamente pero `<router-name>` no coincide con el router real que Coolify autogeneró para `metrics-hub` (ej. porque se copió el nombre de otro recurso, o Coolify regeneró el nombre tras un cambio de config). El síntoma es que el dominio responde `404`/`502` de Traefik, o — peor — sirve el dashboard sin pedir credenciales porque el middleware quedó atado a un router que no es el de `metrics-hub`. Este escenario es exactamente lo que valida AC-009 en `2_acceptance-criteria.md`: no basta con que el dominio "funcione", hay que confirmar que el middleware correcto está atado al router correcto.
+**F — Coolify ignora o sobreescribe el label personalizado (edge case de configuración).** Las labels se agregan correctamente a `docker-compose.yml`, pero Coolify — comportamiento documentado en issues públicos del proyecto para deploys tipo Docker Compose — las ignora o las sobreescribe durante el deploy, y el middleware nunca queda realmente aplicado. El síntoma es que el dominio sirve el dashboard sin pedir credenciales, indistinguible a simple vista de un deploy "exitoso" si no se verifica explícitamente. Este escenario es exactamente lo que valida AC-009 en `2_acceptance-criteria.md`: no basta con que el dominio "funcione" ni con que la label esté en el archivo — hay que confirmar, inspeccionando el contenedor real, que el middleware quedó efectivamente activo.
 
 ## Alcance
 
 ### Incluye:
 
 - Elegir un dominio para `metrics-hub` (ej. `metrics.omniaos.ai`) y agregarlo al recurso Coolify correspondiente.
-- Generar un hash bcrypt de usuario/contraseña (`htpasswd`) para el middleware BasicAuth.
-- Configurar en Coolify (pestaña de labels / proxy avanzado del recurso `metrics-hub`) las dos labels de Traefik que agregan el middleware `basicauth` y lo asocian al router del servicio.
+- Generar un hash bcrypt de usuario/contraseña (`htpasswd` o su equivalente vía Docker) para el middleware BasicAuth.
+- Agregar a `metrics-hub/docker-compose.yml` las dos labels de Traefik que declaran el middleware `basicauth` y lo enganchan al router autogenerado del servicio (label `coolify.traefik.middlewares`) — commit + push incluidos.
 - Redeploy del recurso en Coolify para que Traefik recargue la config (sin rebuild de imagen).
-- Verificación manual de los 4 escenarios (A-D) de esta spec.
+- Verificación manual de los 4 escenarios (A-D) de esta spec, incluyendo inspección de las labels efectivas del contenedor desplegado (no solo del archivo).
 - Documentar el dominio final (una vez elegido) en la sección `metrics-hub/` de `DEPLOY_COOLIFY.md`, reemplazando la línea actual "sin dominio configurado".
 
 ### No incluye:
 
 - Cambiar la política de binding a `127.0.0.1` de ningún puerto — sigue vigente para los tres servicios (`gateway`, `memory`, `metrics-hub`). Esta feature es aditiva (agrega una vía de acceso autenticada), no reemplaza la política post-incidente.
-- Agregar autenticación a nivel de aplicación dentro del código de `metrics-hub` (login, sesiones, JWT, etc.). La autenticación vive enteramente en el proxy (Traefik), fuera del código del repo.
-- Modificar `metrics-hub/docker-compose.yml`, `Dockerfile` o `docker-entrypoint.sh`.
+- Agregar autenticación a nivel de aplicación dentro del código de `metrics-hub` (login, sesiones, JWT, etc.). La autenticación vive en el proxy (Traefik) vía labels declarativas, no en lógica de aplicación del repo.
+- Modificar `metrics-hub/Dockerfile`, `docker-entrypoint.sh`, `scripts/*` o `dashboard/*` — el único archivo de código que cambia es `metrics-hub/docker-compose.yml`, y solo en su bloque `labels:`.
 - Exponer `gateway` o `memory` de forma distinta a como están hoy — fuera de alcance de esta feature (ver feature separada `port-exposure-alerts` en el mismo sprint para monitoreo de exposición de puertos).
 - Rotación o gestión de credenciales a largo plazo (ej. vault de secrets) — el usuario/contraseña BasicAuth se define una vez como parte de esta feature; su ciclo de vida posterior no está cubierto aquí.
 
@@ -84,16 +86,16 @@ La solución de esta feature es agregar un dominio Coolify a `metrics-hub` prote
 
 **Archivos del repo modificados:**
 
+- `metrics-hub/docker-compose.yml` — agrega un bloque `labels:` al servicio `metrics-hub` con el middleware BasicAuth (incluye el hash bcrypt de las credenciales; la contraseña en texto plano nunca se escribe aquí ni en ningún otro archivo). `ports`, `environment`, `image`, `volumes` no cambian.
 - `DEPLOY_COOLIFY.md` — sección `### \`metrics-hub/\`` actualizada con el dominio final (placeholder `<dominio a confirmar>` hasta que se elija en Coolify).
 
-**Archivos del repo NO modificados (explícito, por ser inusual en una feature de infraestructura):**
+**Archivos del repo NO modificados:**
 
-- `metrics-hub/docker-compose.yml` — sin cambios. El binding `127.0.0.1:4320:4320` permanece igual.
-- `metrics-hub/Dockerfile`, `metrics-hub/docker-entrypoint.sh`, `metrics-hub/scripts/*`, `metrics-hub/dashboard/*` — sin cambios.
+- `metrics-hub/Dockerfile`, `metrics-hub/docker-entrypoint.sh`, `metrics-hub/scripts/*`, `metrics-hub/dashboard/*` — sin cambios. No hay rebuild de imagen.
 
 **Config fuera del repo (no versionada en git):**
 
-- Recurso `metrics-hub` en la consola de Coolify: nuevo dominio + labels de Traefik (BasicAuth). Esta es la parte central de la feature y vive enteramente en la base de datos/config de Coolify, no en este repositorio.
+- Recurso `metrics-hub` en la consola de Coolify: el dominio nuevo se agrega ahí (no en el repo). El redeploy que aplica las labels también se dispara desde Coolify.
 
 **Sin impacto en runtime del servicio:** no se requiere rebuild de la imagen `omnia/metrics-hub:latest` ni cambia el comportamiento del proceso Node dentro del contenedor — Traefik intercepta y autentica el tráfico *antes* de que llegue al contenedor.
 

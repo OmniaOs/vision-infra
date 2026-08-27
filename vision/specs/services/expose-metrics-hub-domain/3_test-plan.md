@@ -8,6 +8,8 @@ version: 1
 last_updated: 2026-08-26
 ```
 
+> **Nota (2026-08-26, vía `/modifyspec`):** Pasos 8 y 9 se invirtieron respecto a la versión original — `docker-compose.yml` sí cambia ahora (bloque `labels:`), y el hash bcrypt sí se commitea intencionalmente. Ver `1_spec.md` → Historial de Cambios.
+
 ## Estrategia de Testing
 
 Esta feature es una acción operativa de infraestructura (config de Coolify + Traefik vía consola web), no código de aplicación. El repo **no tiene un harness de test automatizado para config de infraestructura de Coolify** — el constitution declara explícitamente `Testing: ninguno configurado todavía`, y no hay ningún framework de test (unit/integration) en `metrics-hub/package.json`. Sería una ficción escribir aquí una suite `vitest`/`jest` que no existe y que no correría en CI (no hay CI configurado en este repo).
@@ -89,21 +91,21 @@ curl -i http://127.0.0.1:4320/
 
 **Esperado:** status `200` con el dashboard, exactamente como funcionaba antes de esta feature — el túnel no pasa por Traefik ni por el middleware BasicAuth (va directo al puerto local reenviado), así que no debería pedir credenciales.
 
-### Paso 8 — `docker-compose.yml` sin cambios (cubre AC-005)
+### Paso 8 — `docker-compose.yml` solo cambia en `labels:` (cubre AC-005)
 
 ```bash
-git diff -- metrics-hub/docker-compose.yml
+git diff <commit-antes-de-esta-feature>..HEAD -- metrics-hub/docker-compose.yml
 ```
 
-**Esperado:** salida vacía (sin diferencias) al comparar contra el estado del repo antes de implementar esta feature.
+**Esperado:** el diff muestra únicamente un bloque `labels:` agregado bajo el servicio `metrics-hub`. Las líneas de `ports` (`127.0.0.1:4320:4320`), `environment`, `image`, `volumes`, `build`, `restart` no aparecen en el diff (sin cambios).
 
-### Paso 9 — Credenciales nunca committeadas (cubre AC-012)
+### Paso 9 — El hash sí quedó committeado; la contraseña en texto plano no (cubre AC-012)
 
 ```bash
-git log -p --all -- metrics-hub/ DEPLOY_COOLIFY.md | grep -E '\$2[aby]\$'
+git log -p --all -- metrics-hub/docker-compose.yml | grep -E '\$\$2[aby]\$\$'
 ```
 
-**Esperado:** sin resultados — ningún hash bcrypt (patrón `$2a$`, `$2b$` o `$2y$`) aparece en el historial de git de los archivos tocados por esta feature.
+**Esperado:** SÍ aparece un resultado — el hash bcrypt (con `$` escapado a `$$`) presente en el commit de esta feature, confirmando que la implementación siguió el diseño de INV-5. Adicionalmente, revisar a mano el mismo commit (`git show <commit>`) para confirmar que la contraseña en texto plano usada para generar el hash no aparece en ningún lado — ni en el diff, ni en el mensaje de commit.
 
 ### Paso 10 — Middleware no afecta a otros recursos (cubre AC-009)
 
