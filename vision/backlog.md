@@ -31,4 +31,9 @@ Este backlog organiza las features del proyecto por **sprints**. Un sprint agrup
 
 ---
 
-<!-- BACKLOG_EMPTY: true. Los sprints se generan al correr /setup. No editar manualmente antes de ejecutar /setup. -->
+## Sprint 1 — Cierre de gaps operativos post-incidente
+
+- [ ] **expose-metrics-hub-domain** — `vision/specs/services/expose-metrics-hub-domain/`
+- [ ] **verify-plane-sync-end-to-end** — `vision/specs/core/verify-plane-sync-end-to-end/`
+- [ ] **port-exposure-alerts** — `vision/specs/services/port-exposure-alerts/`
+- [ ] **confirm-incident-scope-with-emilio** — `vision/specs/docs/confirm-incident-scope-with-emilio/`

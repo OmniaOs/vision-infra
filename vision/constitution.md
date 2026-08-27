@@ -9,7 +9,11 @@ version: 1.0
 
 ## Descripción
 
+Infraestructura compartida de Omnia: gateway de LLM, memoria de equipo y métricas cross-repo, desplegados en Coolify sobre un VPS dedicado.
 
+**Tipo:** otro — infraestructura de plataforma (varios servicios Docker independientes, no una app con una sola interfaz).
+
+**Arquitectura:** servicios independientes, uno por subcarpeta, cada uno un recurso Docker Compose separado en Coolify — no se comunican entre sí salvo por el gateway de LLM compartido.
 
 ---
 
@@ -39,36 +43,36 @@ version: 1.0
 
 ## Stack Técnico
 
-- **Lenguaje**: [Lenguaje principal]
-- **Framework**: [Framework principal]
-- **Testing**: [Framework de testing]
+- **Lenguaje**: Python (LiteLLM, Mem0/OpenMemory) + Node.js (Hermes, metrics-hub)
+- **Framework**: Docker Compose (orquestación), LiteLLM (gateway), Mem0/OpenMemory + Qdrant (memoria)
+- **Testing**: ninguno configurado todavía
 
 ---
 
 ## Convenciones
 
-- [Convención de código 1]
-- [Convención de código 2]
+- Puertos publicados solo en `127.0.0.1` — acceso remoto siempre por túnel SSH, nunca puerto abierto a internet (regla post-incidente 20-jul-2026).
+- Config estática horneada en la imagen (`COPY` en el Dockerfile), no bind-mounts.
+- Secrets solo como variables de entorno en Coolify — nunca committeados.
 
 ---
 
-## Integración ClickUp
+## Integración Plane
 
-> Bloque opcional. Lo llena `/setup` cuando el usuario elige conectar Vision V2 con su workspace de ClickUp.
-> Si `enabled` es `false` (o este bloque no existe), la skill `clickup-sync` se ejecuta como no-op silencioso y el resto del framework funciona normal.
+> Bloque opcional. Lo llena `/setup` cuando el usuario elige conectar Vision V2 con su workspace de Plane.
+> Si `enabled` es `false` (o este bloque no existe), la skill `plane-sync` se ejecuta como no-op silencioso y el resto del framework funciona normal.
 
 ```yaml
-clickup:
-  enabled: false
-  workspace_id: ""
-  list_id: ""
+plane:
+  enabled: true
+  project_id: "ca75c562-081c-4236-904d-b403484dcf7d"
   status_map:
-    pending: ""
-    in-progress: ""
-    done: ""
+    pending: "Todo"
+    in-progress: "In Progress"
+    done: "Done"
   task_match:
-    method: "by-name"           # "by-name" o "by-custom-field"
-    custom_field_name: null     # solo si method == "by-custom-field"
+    method: "by-name"
+    custom_field_name: null
 ```
 
 ---
