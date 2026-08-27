@@ -15,6 +15,12 @@
       "status": "pending",
       "completedAt": null,
       "position": 2
+    },
+    {
+      "name": "port-exposure-alerts",
+      "status": "pending",
+      "completedAt": null,
+      "position": 3
     }
   ]
 }
