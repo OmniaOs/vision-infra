@@ -4,8 +4,8 @@
 
 ```yaml
 status: pending
-version: 3
-last_updated: 2026-08-26
+version: 4
+last_updated: 2026-08-27
 category: services
 ```
 
@@ -13,6 +13,7 @@ category: services
 
 - [ADDED] 2026-08-26: Versión inicial de la especificación.
 - [MODIFIED] 2026-08-26 (cambio mayor): esta instalación de Coolify (v4.0.0) no tiene pestaña de "Labels" en la UI para recursos tipo Docker Compose — confirmado revisando "Advanced" y "Environment Variables" del recurso `metrics-hub`, ninguna expone labels de Traefik (esa UI solo existe para recursos tipo "Application"/Dockerfile/Nixpacks). Se invalida el supuesto original de INV-1 e INV-5 (config 100% fuera del repo). Nuevo diseño: las labels de Traefik (incluido el hash bcrypt de las credenciales) se agregan directamente a `metrics-hub/docker-compose.yml` y se commitean a git — la contraseña en texto plano nunca se guarda en ningún archivo. Se reemplaza el enfoque de "leer el router-name autogenerado en la consola" por el label especial `coolify.traefik.middlewares`, que engancha el middleware al router de Coolify sin necesitar conocer su nombre. Afecta: Invariantes, Modelo de Datos, Algoritmo (Pasos 3, 4, 7), Manejo de Errores, Resumen Ejecutivo.
+- [MODIFIED] 2026-08-27 (ejecución real, dos hallazgos): (1) **Bloqueador resuelto** — `omnia-portblock.sh` en el VPS bloqueaba `80`/`443` además de los puertos de apps, dejando *cualquier* dominio público inalcanzable desde el fix del 24-jul-2026 (confirmado con `tcpdump`: el SYN externo llegaba a `ens3` pero nunca había respuesta — descartado firewall de OVH/Edge Firewall, que estaba desactivado). Corregido y versionado en `infra/vps/`. (2) **Bloqueador abierto, sin resolver** — con 80/443 ya libres, Traefik responde pero el router que Coolify genera para este recurso trae `Host(\`\`) && PathPrefix(\`metrics.omniaos.ai\`)` (Host vacío) en vez de `Host(\`metrics.omniaos.ai\`)`, causando `503 no available server`. Persiste tras desactivar "Strip Prefixes" y tras agregar labels de override manual en el compose (Coolify las sobreescribe en su regeneración — confirmado empíricamente, no solo por la documentación de Coolify). Hipótesis sin confirmar: el parser de Coolify no maneja el prefijo `127.0.0.1:` de `ports:`. Se decidió **no** probar quitar ese prefijo (reduciría la defensa en profundidad) — queda como pendiente para retomar con calma o escalar a soporte de Coolify. Acceso funcional mientras tanto: túnel SSH. Afecta: Manejo de Errores, Resumen Ejecutivo.
 
 Futuras ediciones deben registrarse aquí con la etiqueta `[CHANGED]`, `[ADDED]` o `[REMOVED]` correspondiente, siguiendo la convención de `/modifyspec`.
 
@@ -172,6 +173,7 @@ Al ser una acción operativa, esta tabla cubre tanto respuestas HTTP esperadas c
 | Conexión rechazada / timeout | `curl` directo a `<IP-VPS>:4320` desde fuera del VPS | La conexión no se establece (loopback binding + `omnia-portblock`). | Comportamiento esperado — confirma INV-4. Si en cambio la conexión SÍ se establece, es una regresión de seguridad: detener el rollout y revisar si algo modificó el binding del puerto. |
 | Dashboard se sirve SIN pedir credenciales tras el deploy | El label `coolify.traefik.middlewares` fue ignorado o sobreescrito por Coolify — riesgo documentado en INV-9 para deploys tipo Docker Compose | El dashboard es alcanzable sin autenticación — viola INV-3. | Inspeccionar las labels efectivas del contenedor corriendo en el VPS (`docker inspect metrics-hub-... \| grep traefik`, vía OCC `script_run` o SSH directo) para confirmar si el middleware realmente se aplicó. Si el label no aparece en el contenedor real, es un límite de esta versión/instalación de Coolify — no reintentar ciegamente; documentar el hallazgo y evaluar una alternativa (ej. definir el router completo a mano en las labels en vez de depender del atajo `coolify.traefik.middlewares`). |
 | `404` / `502` / `503` en el dominio | El dominio no está correctamente enrutado, o hay un problema no relacionado con las labels de auth | Traefik no encuentra el servicio detrás del dominio. | Confirmar primero que el dominio funciona SIN las labels de BasicAuth (comentarlas temporalmente, redeploy, probar) para aislar si el problema es el dominio en sí o el middleware. |
+| `503 no available server`, encontrado y sin resolver el 2026-08-27 | Bug de Coolify: el router autogenerado trae `Host(\`\`) && PathPrefix(\`dominio\`)` en vez de `Host(\`dominio\`)` — confirmado vía `docker inspect` de las labels reales del contenedor | El dominio nunca enruta al servicio real, con o sin BasicAuth | No confirmado resuelto. Ya se descartó: "Strip Prefixes" (se probó desactivado, mismo resultado) y overrides manuales de `.rule`/`.middlewares` en el compose (Coolify los pisa en su regeneración). Hipótesis sin probar: el prefijo `127.0.0.1:` en `ports:` confunde el parser de Coolify — probar quitarlo requeriría antes confirmar que `omnia-portblock` sigue bloqueando ese puerto igual (ver `infra/vps/`), y aun así es una reducción real de la defensa en profundidad, no tomar la decisión unilateralmente. Alternativa: abrir ticket con soporte de Coolify con este `docker inspect` como evidencia. |
 | `htpasswd: command not found` | El comando no está instalado en la máquina donde se genera el hash | El Paso 1 no puede ejecutarse localmente. | Instalar `apache2-utils` (Debian/Ubuntu) o `httpd-tools` (RHEL/Fedora), o usar `docker run --rm httpd:alpine htpasswd -nbB ...` (funciona en cualquier máquina con Docker, incluyendo Windows). |
 | Certificado TLS pendiente | El dominio se agregó pero Let's Encrypt aún no emitió el certificado | El navegador muestra advertencia de certificado inválido o la conexión HTTPS falla. | Esperar la emisión automática (unos minutos típicamente); confirmar que el DNS ya propagó antes de reportarlo como falla. |
 | Conexión SÍ se establece por el puerto directo tras esta feature | Algo distinto a esta feature modificó el binding de `docker-compose.yml` o el estado de `omnia-portblock` | Regresión de seguridad — viola INV-4 | Detener el rollout de esta feature inmediatamente, revisar `git diff` sobre `metrics-hub/docker-compose.yml` (debe tocar únicamente el bloque `labels:`, ver INV-1) y el estado de `omnia-portblock` en el VPS vía OCC (`nodes_get`/`services_list`) antes de continuar. |
@@ -181,15 +183,17 @@ Al ser una acción operativa, esta tabla cubre tanto respuestas HTTP esperadas c
 
 Checklist de implementación (a ejecutar por el humano con acceso a Coolify y al repo):
 
-- [ ] Elegir usuario y contraseña para BasicAuth; generar el hash bcrypt con `htpasswd -nbB` o su equivalente Docker (Paso 1).
-- [ ] Elegir el dominio final (ej. `metrics.omniaos.ai`) y agregarlo al recurso `metrics-hub` en Coolify, con HTTPS gestionado (Paso 2).
-- [ ] Confirmar que el DNS del dominio elegido apunta a `148.113.203.22`.
-- [ ] Editar `metrics-hub/docker-compose.yml`: agregar el bloque `labels:` con las dos labels de Traefik (Paso 3), escapando `$` a `$$` en el hash.
-- [ ] Commit + push del cambio.
-- [ ] Confirmar redeploy (automático o manual) del recurso `metrics-hub` (Paso 4).
-- [ ] Ejecutar la validación manual completa de `3_test-plan.md` (Paso 5), incluyendo la inspección de labels efectivas del contenedor (no asumir que el archivo == lo desplegado).
-- [ ] Confirmar que `docker-compose.yml` de `metrics-hub` solo cambió en el bloque `labels:` (INV-1) y que el puerto directo `4320` sigue sin responder desde fuera (INV-4).
-- [ ] Actualizar `DEPLOY_COOLIFY.md` con el dominio final, reemplazando el placeholder (Paso 6).
-- [ ] Correr `/onspecomplete expose-metrics-hub-domain` una vez validado todo lo anterior.
+- [x] Elegir usuario y contraseña para BasicAuth; generar el hash bcrypt con `htpasswd -nbB` o su equivalente Docker (Paso 1). — `daniel@omniaos.ai`, 2026-08-27.
+- [x] Elegir el dominio final (`metrics.omniaos.ai`) y agregarlo al recurso `metrics-hub` en Coolify, con HTTPS gestionado (Paso 2).
+- [x] Confirmar que el DNS del dominio elegido apunta a `148.113.203.22`. — resuelve correctamente desde el 2026-08-27.
+- [x] Editar `metrics-hub/docker-compose.yml`: agregar el bloque `labels:` con las labels de Traefik (Paso 3), escapando `$` a `$$` en el hash. — commits `8a7136f`, `84f7a54`.
+- [x] Commit + push del cambio.
+- [x] Confirmar redeploy (automático o manual) del recurso `metrics-hub` (Paso 4). — Auto Deploy está desactivado; cada cambio necesitó redeploy manual.
+- [ ] **Bloqueado.** Ejecutar la validación manual completa de `3_test-plan.md` (Paso 5) — no se puede completar: el dominio responde `503 no available server` por el bug de Coolify sin resolver (ver Manejo de Errores e Historial de Cambios 2026-08-27). Lo que sí se validó: puerto directo `4320` sigue bloqueado desde fuera (INV-4 sostiene), TLS conecta sin timeout tras arreglar `omnia-portblock` (ver más abajo).
+- [x] Confirmar que `docker-compose.yml` de `metrics-hub` solo cambió en el bloque `labels:` (INV-1) y que el puerto directo `4320` sigue sin responder desde fuera (INV-4).
+- [ ] Actualizar `DEPLOY_COOLIFY.md` con el dominio final — hecho parcialmente (dominio + BasicAuth documentados), pero el bloqueador activo también queda documentado ahí en vez de un estado "funcionando".
+- [ ] **No correr `/onspecomplete` todavía** — la feature no está funcional de punta a punta mientras el bug de Coolify siga sin resolver.
+
+**Hallazgo colateral, ya resuelto, fuera del alcance original de esta spec pero descubierto ejecutándola:** `omnia-portblock.sh` en el VPS bloqueaba también los puertos `80`/`443` (los de Traefik), dejando *cualquier* dominio de este repo inalcanzable desde el fix del 24-jul-2026 — no un problema del proveedor, como se sospechó dos veces antes de encontrar esto. Corregido y versionado en `infra/vps/`. Este hallazgo es prerequisito para `gateway`/`memory` también, no solo para esta feature.
 
 Nota final para quien ejecute esta checklist: cada casilla debe cerrarse con evidencia verificable (el output real de un comando, o una captura de la consola de Coolify), no de memoria — ver la sección "Definición de 'Hecho'" en `2_acceptance-criteria.md` para el criterio exacto de cierre de la feature.
