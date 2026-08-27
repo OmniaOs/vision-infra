@@ -14,6 +14,12 @@ services:
     labels:
       - "traefik.http.middlewares.metrics-auth.basicauth.users=daniel@omniaos.ai:$$2y$$05$$RSfpkDYnWfHdteDgZDjepuozu4ogao0vW3qnJLi8GIHufdnVlgESi"
       - "coolify.traefik.middlewares=metrics-auth"
+      # Override manual: el generador de reglas de Coolify para este recurso
+      # produce "Host(``) && PathPrefix(`metrics.omniaos.ai`)" (roto — Host
+      # vacío), probablemente por el binding "127.0.0.1:4320:4320" de abajo.
+      # Se fija la regla y los middlewares a mano hasta confirmar la causa.
+      - "traefik.http.routers.http-0-rezt6ydunq77iliyzpzkf0xh-metrics-hub.rule=Host(`metrics.omniaos.ai`)"
+      - "traefik.http.routers.http-0-rezt6ydunq77iliyzpzkf0xh-metrics-hub.middlewares=metrics-auth,gzip"
     environment:
       # Repos a agregar (CSV owner/repo).
       - HUB_REPOS=${HUB_REPOS:-OmniaOs/OmniaPOS,OmniaOs/VisionFramework,OmniaOs/frutal,OmniaOs/weritas}
