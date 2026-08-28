@@ -3,9 +3,9 @@
 ## Metadata
 
 ```yaml
-status: pending
+status: done
 created: 2026-08-26
-updated: 2026-08-26
+updated: 2026-08-28
 dependencies: none
 position: 1
 plane_workitem_id: null

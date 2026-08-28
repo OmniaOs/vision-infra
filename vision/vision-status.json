@@ -2,12 +2,12 @@
   "version": "2.0.0",
   "projectName": "vision-infra",
   "created": "2026-08-26T19:45:40.232Z",
-  "lastUpdated": "2026-08-27T00:10:00.000Z",
+  "lastUpdated": "2026-08-28T16:30:00Z",
   "features": [
     {
       "name": "expose-metrics-hub-domain",
-      "status": "pending",
-      "completedAt": null,
+      "status": "done",
+      "completedAt": "2026-08-28",
       "position": 1
     },
     {

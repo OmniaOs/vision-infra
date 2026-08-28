@@ -79,4 +79,4 @@ plane:
 
 ## Módulos Implementados
 
-_Ningún módulo implementado aún._
+- **expose-metrics-hub-domain** (`vision/specs/services/expose-metrics-hub-domain/`) — Desde el fix de seguridad del commit `82cba23` (24-jul-2026, post-incidente del 20-jul-2026), los tres servicios de este…. Completado: `2026-08-28`.

@@ -33,7 +33,7 @@ Este backlog organiza las features del proyecto por **sprints**. Un sprint agrup
 
 ## Sprint 1 — Cierre de gaps operativos post-incidente
 
-- [ ] **expose-metrics-hub-domain** — `vision/specs/services/expose-metrics-hub-domain/`
+- [x] **expose-metrics-hub-domain** — `vision/specs/services/expose-metrics-hub-domain/` — _2026-08-28_
 - [ ] **verify-plane-sync-end-to-end** — `vision/specs/core/verify-plane-sync-end-to-end/`
 - [ ] **port-exposure-alerts** — `vision/specs/services/port-exposure-alerts/`
 - [ ] **confirm-incident-scope-with-emilio** — `vision/specs/docs/confirm-incident-scope-with-emilio/`
