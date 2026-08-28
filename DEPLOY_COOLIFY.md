@@ -68,12 +68,33 @@
 
 - Recurso Coolify: Docker Compose, build desde `metrics-hub/`.
 - Secrets: `HUB_REPOS` (CSV `owner/repo`), `GITHUB_TOKEN`.
-- Puerto `4320`, loopback-only, **sin dominio configurado** — a diferencia
-  de gateway/memory, no hay ninguna referencia a un dominio `*.omniaos.ai`
-  en su config. Acceso hoy: túnel SSH manual
-  (`ssh -L 4320:127.0.0.1:4320 <user>@148.113.203.22`). Ponerle Traefik +
-  BasicAuth vía la consola de Coolify (dominio + middleware, sin tocar el
-  `docker-compose.yml`) es el punto 6 de la lista de pendientes del repo.
+- Puerto `4320`, loopback-only. **Dominio: `https://metrics.omniaos.ai`**,
+  con BasicAuth vía middleware de Traefik (`metrics-auth`, labels agregadas
+  en `metrics-hub/docker-compose.yml` — hash bcrypt versionado, contraseña
+  en texto plano nunca committeada). El acceso por túnel SSH manual
+  (`ssh -L 4320:127.0.0.1:4320 <user>@148.113.203.22`) sigue funcionando
+  como fallback.
+- **Gotchas de configuración en Coolify (no visibles desde el compose)** —
+  costaron un día de debugging el 27/28-ago-2026, detalle completo en
+  `vision/specs/services/expose-metrics-hub-domain/`:
+  - El campo **"Domains for `<recurso>`"** en Configuration → General
+    necesita el esquema (`https://metrics.omniaos.ai`), no el dominio a
+    secas (`metrics.omniaos.ai`). Sin el esquema, el generador de reglas de
+    Coolify produce `Host('') && PathPrefix('metrics.omniaos.ai')` (Host
+    vacío) en vez de `Host('metrics.omniaos.ai')`, y Traefik rechaza esa
+    regla y responde 503 — **incluso si el `docker-compose.yml` del
+    servicio ya trae un label `traefik.http.routers.<router>.rule=...`
+    correcto**, porque Coolify regenera y pisa esa regla en cada redeploy
+    a partir del campo de dominio, no solo a partir del compose.
+  - El toggle **"Escape special characters in labels?"** (Configuration →
+    General → Docker Compose, por recurso) debe quedar **desactivado** si
+    el `docker-compose.yml` ya escapa `$` a mano como `$$` (necesario para
+    que Docker Compose no intente interpolar el hash bcrypt como
+    variable). Si el toggle queda activado además del escape manual,
+    Coolify aplica un segundo nivel de escape (`$$` → `$$$$`), y al
+    colapsar Docker Compose el resultado final es `$$` — inválido para
+    BasicAuth — en vez de `$`. Corrompe el hash en silencio, sin error
+    visible hasta que se prueba con credenciales reales.
 
 ## Política de seguridad (post-incidente 20-jul-2026)
 
