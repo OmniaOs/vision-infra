@@ -3,12 +3,12 @@
 ## Metadata
 
 ```yaml
-status: pending
+status: done
 created: 2026-08-26
-updated: 2026-08-26
+updated: 2026-08-28
 dependencies: none
 position: 1
-plane_workitem_id: null
+plane_workitem_id: "VINF-1"
 ```
 
 > **Nota (2026-08-26, vía `/modifyspec`):** esta versión del contrato refleja un descubrimiento posterior a la escritura inicial — esta instalación de Coolify no tiene UI de labels para recursos Docker Compose, así que `metrics-hub/docker-compose.yml` sí cambia como parte de esta feature. Ver `1_spec.md` → Historial de Cambios para el detalle completo.
