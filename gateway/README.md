@@ -6,10 +6,14 @@ Gateway para **cargas programáticas** (CI, agentes batch, servicios) con **API 
 
 ## Deploy (Coolify / Hetzner)
 
-1. `cp .env.example .env` y rellena `LITELLM_MASTER_KEY`, `POSTGRES_PASSWORD` y `ZAI_API_KEY` (GLM 5.2).
+1. `cp .env.example .env` y rellena `LITELLM_MASTER_KEY`, `POSTGRES_PASSWORD`, `ZAI_API_KEY` (GLM 5.2) y `OPENAI_API_KEY` (embeddings).
 2. `docker compose up -d`
 3. UI de uso: `http://<host>:4000/ui` · endpoint OpenAI-compatible: `http://<host>:4000`.
 4. En Coolify: nuevo recurso "Docker Compose", pega este repo, define las env vars como secrets.
+
+## Dominio público (`gateway.omniaos.ai`)
+
+El puerto `4000` sigue publicado solo en `127.0.0.1` (política post-incidente). El acceso remoto es vía el dominio Coolify/Traefik `gateway.omniaos.ai`. Sin capa extra de BasicAuth (a diferencia de `metrics-hub`): LiteLLM ya exige Bearer token en la API y login con la master key en `/ui`, y BasicAuth sobre todo el dominio rompería a cualquier cliente Bearer existente (el chatbot incluido). Ver `vision/specs/services/expose-litellm-gateway-domain/` para el detalle completo y el runbook de Coolify.
 
 ## Virtual keys por dev (medición + presupuestos)
 
@@ -39,3 +43,5 @@ El gasto por virtual key (API) complementa la telemetría de suscripción (inter
 ## Modelos
 
 Ajusta `litellm-config.yaml` con los model ids exactos de tu cuenta (el de Kimi/Moonshot en particular). `drop_params: true` evita errores por params no soportados entre providers.
+
+Embeddings (`text-embedding-3-small`, OpenAI): z.ai/GLM no expone endpoint de embeddings bajo esta cuenta (ni coding plan ni general) — `embedding-2`/`embedding-3` de Zhipu solo existen en su plataforma doméstica china (bigmodel.cn), cuenta separada. Se usa OpenAI directo (~$0.02 USD/1M tokens) vía `OPENAI_API_KEY`.

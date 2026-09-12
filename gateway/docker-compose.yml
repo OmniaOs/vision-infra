@@ -8,14 +8,31 @@ services:
     image: omnia/gateway-litellm:latest
     restart: unless-stopped
     # Solo loopback: acceso remoto por túnel SSH (post-incidente 20-jul-2026).
+    # El dominio gateway.omniaos.ai (ver vision/specs/services/expose-litellm-gateway-domain/)
+    # llega igual vía Traefik container-to-container — el binding a loopback
+    # no afecta esa ruta, solo bloquea el puerto directo desde internet.
     ports:
       - "127.0.0.1:4000:4000"
     environment:
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
       DATABASE_URL: postgresql://litellm:${POSTGRES_PASSWORD}@db:5432/litellm
       ZAI_API_KEY: ${ZAI_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
     depends_on:
       - db
+    # Sin BasicAuth adicional: LiteLLM ya exige Bearer token (master/virtual
+    # key) en la API y login con la master key en /ui — una capa extra de
+    # BasicAuth sobre TODO el dominio rompería a cualquier cliente que ya
+    # manda "Authorization: Bearer <virtual-key>" (el chatbot incluido), ya
+    # que el header Authorization solo admite un esquema a la vez. Ver
+    # vision/specs/services/expose-litellm-gateway-domain/ (Alternativas).
+    #
+    # Si al agregar el dominio en Coolify el router autogenerado queda con
+    # Host('') vacío (mismo bug visto en metrics-hub por el binding a
+    # loopback — commit 84f7a54), agregar aquí el override manual de
+    # "traefik.http.routers.<router>.rule=Host(`gateway.omniaos.ai`)" una vez
+    # confirmado el nombre real del router en el contenedor desplegado — no
+    # adivinarlo de antemano.
 
   db:
     image: postgres:16-alpine

@@ -37,3 +37,4 @@ Este backlog organiza las features del proyecto por **sprints**. Un sprint agrup
 - [ ] **verify-plane-sync-end-to-end** — `vision/specs/core/verify-plane-sync-end-to-end/`
 - [ ] **port-exposure-alerts** — `vision/specs/services/port-exposure-alerts/`
 - [ ] **confirm-incident-scope-with-emilio** — `vision/specs/docs/confirm-incident-scope-with-emilio/`
+- [ ] **expose-litellm-gateway-domain** — `vision/specs/services/expose-litellm-gateway-domain/` — agregada 2026-09-12: expone `gateway.omniaos.ai` (dominio ya esperado por otros servicios, nunca confirmado) y agrega `text-embedding-3-small` (OpenAI) como modelo de embeddings — bloqueante de coordinación que ya frenaba a `core/resolucion-automatica-conocimiento` y `core/destilacion-automatica-faq` del repo `chatbot`. Sin BasicAuth (a diferencia de `metrics-hub`): rompería la auth Bearer que ya usan los clientes del gateway.

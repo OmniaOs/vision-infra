@@ -23,6 +23,15 @@ model_list:
       api_base: https://api.z.ai/api/coding/paas/v4
       api_key: os.environ/ZAI_API_KEY
 
+  # Embeddings — z.ai/GLM no expone endpoint de embeddings (ni en coding plan
+  # ni en el general); embedding-2/3 de Zhipu solo viven en su plataforma
+  # doméstica china (bigmodel.cn), cuenta separada. Se usa OpenAI directo:
+  # ~$0.02 USD/1M tokens, sin fricción de cuenta. Requiere OPENAI_API_KEY.
+  - model_name: text-embedding-3-small
+    litellm_params:
+      model: openai/text-embedding-3-small
+      api_key: os.environ/OPENAI_API_KEY
+
 litellm_settings:
   drop_params: true
   # tracking de tokens/costo por virtual key queda en Postgres (DATABASE_URL)

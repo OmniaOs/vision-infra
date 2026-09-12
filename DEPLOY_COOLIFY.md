@@ -33,16 +33,24 @@
 
 - Recurso Coolify: Docker Compose, build desde `gateway/`.
 - Secrets a definir en Coolify (nombres — ver valores reales en `gateway/.env.example`):
-  `LITELLM_MASTER_KEY`, `POSTGRES_PASSWORD`, `ZAI_API_KEY`.
+  `LITELLM_MASTER_KEY`, `POSTGRES_PASSWORD`, `ZAI_API_KEY`, `OPENAI_API_KEY`
+  (nuevo — solo para el modelo de embeddings `text-embedding-3-small`, ver
+  `vision/specs/services/expose-litellm-gateway-domain/`).
 - Puerto `4000`, publicado solo en `127.0.0.1` desde el fix de seguridad
   (commit `82cba23`, 2026-07-24).
-- Dominio esperado: `gateway.omniaos.ai` (referenciado como default de
-  `HERMES_LLM_BASE_URL` en `memory/.env.example`). **[VERIFICAR]** si ese
-  dominio sigue activo vía el Traefik de Coolify — el binding a loopback
-  solo afecta el puerto publicado al *host*, no el ruteo interno de Traefik
-  por red de Docker, así que es posible que el dominio siga sirviendo tráfico
-  aunque el puerto directo ya no sea alcanzable desde fuera. Confirmarlo en
-  la consola de Coolify.
+- Dominio: `gateway.omniaos.ai` (referenciado como default de
+  `HERMES_LLM_BASE_URL` en `memory/.env.example`), servido por Traefik
+  (Coolify). Sin capa extra de BasicAuth a propósito — a diferencia de
+  `metrics-hub`, LiteLLM ya exige Bearer token (master/virtual key) en la
+  API y login con la master key en `/ui`; BasicAuth sobre todo el dominio
+  rompería a cualquier cliente que ya manda `Authorization: Bearer
+  <virtual-key>` (el chatbot incluido — un solo header `Authorization` no
+  admite dos esquemas a la vez). Al configurar el campo "Domains" en
+  Coolify, usar el esquema completo (`https://gateway.omniaos.ai`, no
+  `gateway.omniaos.ai` a secas) — sin el esquema, Coolify genera `Host('')`
+  y Traefik responde 503 (mismo bug ya documentado abajo para
+  `metrics-hub`). Detalle completo y checklist de verificación en
+  `vision/specs/services/expose-litellm-gateway-domain/`.
 
 ### `memory/` — Mem0/OpenMemory + Hermes
 
