@@ -4,9 +4,10 @@
 > [`gateway/README.md`](gateway/README.md) y [`memory/README.md`](memory/README.md)
 > nunca existió en el checkout local. Este documento se arma a partir de los
 > `docker-compose.yml` de cada servicio, el historial de git, y verificación en
-> vivo del nodo de producción vía OCC (`server-omniaplatform`). Dos cosas
-> marcadas abajo como **[VERIFICAR]** necesitan confirmarse contra la consola
-> de Coolify directamente — no se pudieron comprobar desde este checkout.
+> vivo del nodo de producción vía OCC (`server-omniaplatform`) y por HTTP/DNS
+> directo. Los dos puntos que en la versión original quedaban marcados
+> `[VERIFICAR]` (estado de los dominios de `gateway`/`memory`) ya se
+> confirmaron y están resueltos en sus secciones respectivas más abajo.
 
 ## Infraestructura
 
