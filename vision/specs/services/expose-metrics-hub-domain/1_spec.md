@@ -3,9 +3,9 @@
 ## Metadata
 
 ```yaml
-status: pending
-version: 3
-last_updated: 2026-08-26
+status: done
+version: 5
+last_updated: 2026-08-28
 category: services
 ```
 
@@ -13,6 +13,8 @@ category: services
 
 - [ADDED] 2026-08-26: Versión inicial de la especificación.
 - [MODIFIED] 2026-08-26 (cambio mayor): esta instalación de Coolify (v4.0.0) no tiene pestaña de "Labels" en la UI para recursos tipo Docker Compose — confirmado revisando "Advanced" y "Environment Variables" del recurso `metrics-hub`, ninguna expone labels de Traefik (esa UI solo existe para recursos tipo "Application"/Dockerfile/Nixpacks). Se invalida el supuesto original de INV-1 e INV-5 (config 100% fuera del repo). Nuevo diseño: las labels de Traefik (incluido el hash bcrypt de las credenciales) se agregan directamente a `metrics-hub/docker-compose.yml` y se commitean a git — la contraseña en texto plano nunca se guarda en ningún archivo. Se reemplaza el enfoque de "leer el router-name autogenerado en la consola" por el label especial `coolify.traefik.middlewares`, que engancha el middleware al router de Coolify sin necesitar conocer su nombre. Afecta: Invariantes, Modelo de Datos, Algoritmo (Pasos 3, 4, 7), Manejo de Errores, Resumen Ejecutivo.
+- [MODIFIED] 2026-08-27 (ejecución real, dos hallazgos): (1) **Bloqueador resuelto** — `omnia-portblock.sh` en el VPS bloqueaba `80`/`443` además de los puertos de apps, dejando *cualquier* dominio público inalcanzable desde el fix del 24-jul-2026 (confirmado con `tcpdump`: el SYN externo llegaba a `ens3` pero nunca había respuesta — descartado firewall de OVH/Edge Firewall, que estaba desactivado). Corregido y versionado en `infra/vps/`. (2) **Bloqueador abierto en ese momento** — con 80/443 ya libres, Traefik respondía pero el router que Coolify generaba para este recurso traía `Host(\`\`) && PathPrefix(\`metrics.omniaos.ai\`)` (Host vacío) en vez de `Host(\`metrics.omniaos.ai\`)`, causando `503 no available server`. Persistía tras desactivar "Strip Prefixes" y tras agregar labels de override manual en el compose. Hipótesis planteada aquí (el parser de Coolify no maneja el prefijo `127.0.0.1:` de `ports:`) — **resultó incorrecta**, ver el siguiente entry para la causa real. Se decidió explícitamente no probar quitar ese prefijo como atajo (habría reducido la defensa en profundidad sin necesidad).
+- [MODIFIED] 2026-08-28 (resuelto — causa real distinta a la hipótesis anterior): el bug del `Host()` vacío no era por el `ports:` del compose. Eran dos problemas de configuración en la propia consola de Coolify, ninguno relacionado con `docker-compose.yml`: **(a)** el campo "Domains for metrics-hub" necesitaba el esquema completo (`https://metrics.omniaos.ai`), no el dominio a secas — sin el esquema, Coolify regenera y pisa el `rule` del router en cada redeploy con la construcción rota, sin importar qué label manual haya en el compose; **(b)** el toggle "Escape special characters in labels?" debía quedar desactivado porque el compose ya escapaba `$` a mano (`$$`) — con el toggle activo además, Coolify aplicaba un segundo escape y el hash bcrypt quedaba corrupto en silencio. Corregidos ambos desde la consola de Coolify (sin cambios de código); verificado en producción: `https://metrics.omniaos.ai` responde `401` sin credenciales y `200` con ellas. Feature cerrada vía `/onspecomplete` (ver `vision-status.json`, `0_contract.md`). Afecta: Manejo de Errores, Resumen Ejecutivo.
 
 Futuras ediciones deben registrarse aquí con la etiqueta `[CHANGED]`, `[ADDED]` o `[REMOVED]` correspondiente, siguiendo la convención de `/modifyspec`.
 
@@ -172,6 +174,8 @@ Al ser una acción operativa, esta tabla cubre tanto respuestas HTTP esperadas c
 | Conexión rechazada / timeout | `curl` directo a `<IP-VPS>:4320` desde fuera del VPS | La conexión no se establece (loopback binding + `omnia-portblock`). | Comportamiento esperado — confirma INV-4. Si en cambio la conexión SÍ se establece, es una regresión de seguridad: detener el rollout y revisar si algo modificó el binding del puerto. |
 | Dashboard se sirve SIN pedir credenciales tras el deploy | El label `coolify.traefik.middlewares` fue ignorado o sobreescrito por Coolify — riesgo documentado en INV-9 para deploys tipo Docker Compose | El dashboard es alcanzable sin autenticación — viola INV-3. | Inspeccionar las labels efectivas del contenedor corriendo en el VPS (`docker inspect metrics-hub-... \| grep traefik`, vía OCC `script_run` o SSH directo) para confirmar si el middleware realmente se aplicó. Si el label no aparece en el contenedor real, es un límite de esta versión/instalación de Coolify — no reintentar ciegamente; documentar el hallazgo y evaluar una alternativa (ej. definir el router completo a mano en las labels en vez de depender del atajo `coolify.traefik.middlewares`). |
 | `404` / `502` / `503` en el dominio | El dominio no está correctamente enrutado, o hay un problema no relacionado con las labels de auth | Traefik no encuentra el servicio detrás del dominio. | Confirmar primero que el dominio funciona SIN las labels de BasicAuth (comentarlas temporalmente, redeploy, probar) para aislar si el problema es el dominio en sí o el middleware. |
+| `503 no available server` (resuelto 2026-08-28) | El campo "Domains for `<recurso>`" en Coolify sin el esquema `https://` — Coolify regenera el router en cada redeploy a partir de ese campo, ignorando cualquier label `.rule` manual en el compose | El dominio nunca enruta al servicio real, con o sin BasicAuth | Poner el dominio completo con esquema (`https://metrics.omniaos.ai`) en el campo de Coolify, no solo el hostname. Ya se habían descartado, correctamente, "Strip Prefixes" y overrides manuales de `.rule`/`.middlewares` en el compose como causa — el problema nunca estuvo en el repo. |
+| Dashboard responde `200` sin pedir credenciales, o Traefik rechaza el hash bcrypt como inválido | El toggle "Escape special characters in labels?" activo además del escape manual `$$` ya presente en el compose — doble escape corrompe el hash en silencio | BasicAuth no protege nada, o rechaza incluso las credenciales correctas, sin ningún error visible en el deploy | Desactivar "Escape special characters in labels?" en Configuration → General → Docker Compose para este recurso — el compose ya trae el escape manual correcto, no necesita el de Coolify encima. |
 | `htpasswd: command not found` | El comando no está instalado en la máquina donde se genera el hash | El Paso 1 no puede ejecutarse localmente. | Instalar `apache2-utils` (Debian/Ubuntu) o `httpd-tools` (RHEL/Fedora), o usar `docker run --rm httpd:alpine htpasswd -nbB ...` (funciona en cualquier máquina con Docker, incluyendo Windows). |
 | Certificado TLS pendiente | El dominio se agregó pero Let's Encrypt aún no emitió el certificado | El navegador muestra advertencia de certificado inválido o la conexión HTTPS falla. | Esperar la emisión automática (unos minutos típicamente); confirmar que el DNS ya propagó antes de reportarlo como falla. |
 | Conexión SÍ se establece por el puerto directo tras esta feature | Algo distinto a esta feature modificó el binding de `docker-compose.yml` o el estado de `omnia-portblock` | Regresión de seguridad — viola INV-4 | Detener el rollout de esta feature inmediatamente, revisar `git diff` sobre `metrics-hub/docker-compose.yml` (debe tocar únicamente el bloque `labels:`, ver INV-1) y el estado de `omnia-portblock` en el VPS vía OCC (`nodes_get`/`services_list`) antes de continuar. |
@@ -181,15 +185,17 @@ Al ser una acción operativa, esta tabla cubre tanto respuestas HTTP esperadas c
 
 Checklist de implementación (a ejecutar por el humano con acceso a Coolify y al repo):
 
-- [ ] Elegir usuario y contraseña para BasicAuth; generar el hash bcrypt con `htpasswd -nbB` o su equivalente Docker (Paso 1).
-- [ ] Elegir el dominio final (ej. `metrics.omniaos.ai`) y agregarlo al recurso `metrics-hub` en Coolify, con HTTPS gestionado (Paso 2).
-- [ ] Confirmar que el DNS del dominio elegido apunta a `148.113.203.22`.
-- [ ] Editar `metrics-hub/docker-compose.yml`: agregar el bloque `labels:` con las dos labels de Traefik (Paso 3), escapando `$` a `$$` en el hash.
-- [ ] Commit + push del cambio.
-- [ ] Confirmar redeploy (automático o manual) del recurso `metrics-hub` (Paso 4).
-- [ ] Ejecutar la validación manual completa de `3_test-plan.md` (Paso 5), incluyendo la inspección de labels efectivas del contenedor (no asumir que el archivo == lo desplegado).
-- [ ] Confirmar que `docker-compose.yml` de `metrics-hub` solo cambió en el bloque `labels:` (INV-1) y que el puerto directo `4320` sigue sin responder desde fuera (INV-4).
-- [ ] Actualizar `DEPLOY_COOLIFY.md` con el dominio final, reemplazando el placeholder (Paso 6).
-- [ ] Correr `/onspecomplete expose-metrics-hub-domain` una vez validado todo lo anterior.
+- [x] Elegir usuario y contraseña para BasicAuth; generar el hash bcrypt con `htpasswd -nbB` o su equivalente Docker (Paso 1). — `daniel@omniaos.ai`, 2026-08-27.
+- [x] Elegir el dominio final (`metrics.omniaos.ai`) y agregarlo al recurso `metrics-hub` en Coolify, con HTTPS gestionado (Paso 2).
+- [x] Confirmar que el DNS del dominio elegido apunta a `148.113.203.22`. — resuelve correctamente desde el 2026-08-27.
+- [x] Editar `metrics-hub/docker-compose.yml`: agregar el bloque `labels:` con las labels de Traefik (Paso 3), escapando `$` a `$$` en el hash. — commits `8a7136f`, `84f7a54`.
+- [x] Commit + push del cambio.
+- [x] Confirmar redeploy (automático o manual) del recurso `metrics-hub` (Paso 4). — Auto Deploy está desactivado; cada cambio necesitó redeploy manual.
+- [x] Ejecutar la validación manual completa de `3_test-plan.md` (Paso 5) — `https://metrics.omniaos.ai` responde `401` sin credenciales y `200` con ellas (verificado 2026-08-28, tras corregir el esquema del dominio y el toggle de doble escape en Coolify).
+- [x] Confirmar que `docker-compose.yml` de `metrics-hub` solo cambió en el bloque `labels:` (INV-1) y que el puerto directo `4320` sigue sin responder desde fuera (INV-4).
+- [x] Actualizar `DEPLOY_COOLIFY.md` con el dominio final y los dos gotchas de configuración de Coolify (esquema del dominio, toggle de escape).
+- [x] Correr `/onspecomplete expose-metrics-hub-domain` — feature cerrada 2026-08-28.
+
+**Hallazgo colateral, ya resuelto, fuera del alcance original de esta spec pero descubierto ejecutándola:** `omnia-portblock.sh` en el VPS bloqueaba también los puertos `80`/`443` (los de Traefik), dejando *cualquier* dominio de este repo inalcanzable desde el fix del 24-jul-2026 — no un problema del proveedor, como se sospechó dos veces antes de encontrar esto. Corregido y versionado en `infra/vps/`. Este hallazgo es prerequisito para `gateway`/`memory` también, no solo para esta feature.
 
 Nota final para quien ejecute esta checklist: cada casilla debe cerrarse con evidencia verificable (el output real de un comando, o una captura de la consola de Coolify), no de memoria — ver la sección "Definición de 'Hecho'" en `2_acceptance-criteria.md` para el criterio exacto de cierre de la feature.

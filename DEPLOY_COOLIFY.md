@@ -39,18 +39,25 @@
 - Puerto `4000`, publicado solo en `127.0.0.1` desde el fix de seguridad
   (commit `82cba23`, 2026-07-24).
 - Dominio: `gateway.omniaos.ai` (referenciado como default de
-  `HERMES_LLM_BASE_URL` en `memory/.env.example`), servido por Traefik
-  (Coolify). Sin capa extra de BasicAuth a propósito — a diferencia de
-  `metrics-hub`, LiteLLM ya exige Bearer token (master/virtual key) en la
-  API y login con la master key en `/ui`; BasicAuth sobre todo el dominio
-  rompería a cualquier cliente que ya manda `Authorization: Bearer
-  <virtual-key>` (el chatbot incluido — un solo header `Authorization` no
-  admite dos esquemas a la vez). Al configurar el campo "Domains" en
-  Coolify, usar el esquema completo (`https://gateway.omniaos.ai`, no
-  `gateway.omniaos.ai` a secas) — sin el esquema, Coolify genera `Host('')`
-  y Traefik responde 503 (mismo bug ya documentado abajo para
-  `metrics-hub`). Detalle completo y checklist de verificación en
-  `vision/specs/services/expose-litellm-gateway-domain/`.
+  `HERMES_LLM_BASE_URL` en `memory/.env.example`). **Todavía sin registro
+  DNS** (confirmado `NXDOMAIN` el 2026-09-14) y sin agregar en la consola
+  de Coolify — el bug de `omnia-portblock` que bloqueaba 80/443 para
+  cualquier dominio de este repo ya se corrigió (2026-08-27, ver más abajo),
+  pero eso solo destraba la exposición; no la ejecuta por sí solo. Spec en
+  curso: `vision/specs/services/expose-litellm-gateway-domain/`
+  (`status: in-progress`).
+  El código ya está preparado para cuando se agregue el dominio: sin capa
+  extra de BasicAuth a propósito — a diferencia de `metrics-hub`, LiteLLM ya
+  exige Bearer token (master/virtual key) en la API y login con la master
+  key en `/ui`; BasicAuth sobre todo el dominio rompería a cualquier cliente
+  que ya manda `Authorization: Bearer <virtual-key>` (el chatbot incluido —
+  un solo header `Authorization` no admite dos esquemas a la vez).
+  **Pendiente operativo** (consola de Coolify): dar de alta el secret
+  `OPENAI_API_KEY`, agregar el dominio con el **esquema completo**
+  (`https://gateway.omniaos.ai`, no `gateway.omniaos.ai` a secas — sin el
+  esquema, Coolify genera `Host('')` y Traefik responde 503, mismo bug ya
+  documentado abajo para `metrics-hub`), redeploy con rebuild, y
+  verificación según `3_test-plan.md` de esa spec.
 
 ### `memory/` — Mem0/OpenMemory + Hermes
 
@@ -70,7 +77,8 @@
   red del stack. El nombre del servicio **debe** ser `mem0_store` (host
   hardcodeado por OpenMemory).
 - Dominio esperado: `memory.omniaos.ai` (`OPENMEMORY_PUBLIC_API_URL` en
-  `.env.example`). Mismo **[VERIFICAR]** que el gateway.
+  `.env.example`). Mismo estado que `gateway.omniaos.ai`: sin registro DNS
+  hoy, nunca configurado.
 
 ### `metrics-hub/`
 
@@ -114,9 +122,16 @@ Desde el commit `82cba23` (24-jul-2026):
 - `openmemory-ui` desactivada por defecto (era el vector del exploit; además
   Coolify inyecta las env de toda la app a cada contenedor del stack, así
   que la UI exponía tokens que ni siquiera usaba).
-- El servicio de sistema `omnia-portblock` en el VPS bloquea puertos
-  publicados hacia afuera tras el arranque de Docker — confirmado activo en
-  `server-omniaplatform` vía OCC.
+- El servicio de sistema `omnia-portblock` en el VPS bloquea (`iptables`/
+  `ip6tables` en `DOCKER-USER`) el acceso externo directo a los puertos de
+  las apps: `3000`, `4000`, `4320`, `6333`, `8765`. Versionado en
+  [`infra/vps/`](infra/vps/) desde el 2026-08-27 — antes solo existía en el
+  VPS, sin respaldo.
+  **Bug corregido el 2026-08-27**: la lista original incluía también `80` y
+  `443` (los puertos de Traefik/`coolify-proxy`), lo que hacía **imposible
+  exponer cualquier dominio público** desde el fix del 24-jul-2026 — no era
+  un problema del proveedor (se sospechó de OVH dos veces antes de encontrar
+  esto). Detalle completo en [`infra/vps/README.md`](infra/vps/README.md).
 
 ## Verificar estado en vivo
 

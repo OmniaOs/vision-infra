@@ -1,0 +1,14 @@
+# /etc/systemd/system/omnia-portblock.service en server-omniaplatform.
+[Unit]
+Description=Omnia: bloquear puertos publicados al exterior (tras docker)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStartPre=/bin/sleep 25
+ExecStart=/usr/local/sbin/omnia-portblock.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
