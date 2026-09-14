@@ -8,7 +8,7 @@ created: 2026-09-12
 updated: 2026-09-12
 dependencies: none
 position: 5
-plane_workitem_id: null
+plane_workitem_id: "VINF-7"
 ```
 
 > Sin work item de Plane asociado todavía — puede vincularse después con la skill `plane-sync` de este repo, como se hizo retroactivamente con `expose-metrics-hub-domain` (VINF-1). No es bloqueante para ejecutar esta spec.
