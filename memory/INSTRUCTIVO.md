@@ -56,8 +56,13 @@ sola vez por máquina — sin volver a depender del admin cada vez que cambiás
 de equipo físico:
 
 ```powershell
-.\memory\setup\windows.ps1
+irm https://vault.omniaos.ai/setup | iex
 ```
+
+No hace falta tener el repo clonado — es autocontenido, instala lo que le
+falte y guarda todo en `%LOCALAPPDATA%\Omnia\memory-tunnel\`. (Si ya tenés
+`vision-infra` clonado, `.\memory\setup\windows.ps1` hace exactamente lo
+mismo.)
 
 Te pide un login simple contra [Vaultwarden](../vault/README.md) (tu email +
 contraseña maestra, +2FA si la activaste) para recuperar tu llave SSH, y

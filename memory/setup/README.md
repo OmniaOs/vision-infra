@@ -15,11 +15,25 @@ todavía una cuenta de Vaultwarden, pedísela al admin antes de seguir.
 
 ## Windows
 
+**Máquina nueva (recomendado) — sin clonar nada:**
+
+```powershell
+irm https://vault.omniaos.ai/setup | iex
+```
+
+Autocontenido: instala Git for Windows y Bitwarden CLI si faltan, y guarda
+todo en `%LOCALAPPDATA%\Omnia\memory-tunnel\` — no depende de tener
+`vision-infra` clonado (el túnel es config de la máquina, no de un checkout
+puntual).
+
+**Si ya tenés el repo clonado**, correr el archivo local hace exactamente lo
+mismo:
+
 ```powershell
 .\memory\setup\windows.ps1
 ```
 
-Te va a pedir, en este orden:
+En ambos casos te va a pedir, en este orden:
 
 1. Tu email de Omnia (el que usaste para aceptar la invitación de Vaultwarden).
 2. Tu contraseña maestra de Vaultwarden (y el segundo factor, si lo tenés
@@ -53,7 +67,7 @@ Mientras tanto, seguí el flujo manual documentado en
 - **Querés desarmar todo en una máquina** →
   ```powershell
   Remove-Item "$([Environment]::GetFolderPath('Startup'))\OmniaMemoryTunnel.vbs"
-  Remove-Item memory\.memory.env
+  Remove-Item -Recurse "$env:LOCALAPPDATA\Omnia\memory-tunnel"
   # y cerrá manualmente cualquier bash.exe corriendo el túnel (Task Manager)
   ```
   y volvé al flujo manual de `memory/INSTRUCTIVO.md` si lo necesitás

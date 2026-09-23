@@ -90,7 +90,9 @@
 - Recurso Coolify: Docker Compose, build desde `vault/`.
 - Secrets (ver `vault/.env.example`): `VAULT_DOMAIN`, `VAULT_ADMIN_TOKEN`
   (hash argon2, ver `vault/.env.example` para cómo generarlo), `SMTP_*`
-  (opcionales — sin ellos, las invitaciones se copian a mano desde `/admin`).
+  (Mailgun — **obligatorias en la práctica**: confirmado que Vaultwarden no
+  expone el link de invitación en ningún lado accesible sin SMTP real, ni en
+  logs ni en la UI del admin panel; las 5 variables van siempre juntas).
 - Puerto `8222` (host) → `80` (contenedor), **loopback-only**, mismo patrón
   post-incidente que los otros tres servicios.
 - Dominio: `vault.omniaos.ai`. Mismo gotcha ya documentado abajo para
@@ -105,6 +107,15 @@
   self-service al túnel de `memory/` — ver
   [`vault/README.md`](vault/README.md) y
   `vision/specs/services/self-service-memory-tunnel-onboarding/`.
+- **Segundo servicio en el mismo `docker-compose.yml` (`setup`)**: nginx
+  minimo que sirve `memory/setup/windows.ps1` y `memory/tunnel.sh` en texto
+  plano, para el bootstrap de una sola línea
+  (`irm https://vault.omniaos.ai/setup | iex`). Build context `..` (raíz del
+  repo, no `vault/`) porque necesita copiar archivos de `memory/`. Enruta por
+  **path** en el mismo dominio (`Host(vault.omniaos.ai) && PathPrefix(/setup)`,
+  labels manuales de Traefik en `vault/docker-compose.yml`, prioridad 100
+  sobre el router de `vault` que Coolify autogenera) — sin `ports:` propio,
+  no hay nada sensible que justifique un fallback de túnel SSH directo.
 
 ### `metrics-hub/`
 
