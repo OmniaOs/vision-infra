@@ -18,13 +18,18 @@ services:
       - SIGNUPS_ALLOWED=false
       - INVITATIONS_ALLOWED=true
       - WEBSOCKET_ENABLED=true
-      # SMTP deliberadamente sin cablear: Vaultwarden trata la sola presencia
-      # de SMTP_PORT (aunque este vacia) como "SMTP configurado" y exige
-      # SMTP_HOST+SMTP_FROM -- no alcanza con dejarlas vacias, hay que omitir
-      # las 5 variables por completo mientras no se use SMTP. Sin SMTP, las
-      # invitaciones se copian a mano desde el panel /admin. Si en el futuro
-      # se configura SMTP real, agregar aqui las 5 variables juntas (nunca
-      # solo SMTP_PORT) y sus secrets en Coolify.
+      # SMTP real (Mailgun) -- necesario porque Vaultwarden no expone el link
+      # de invitacion en ningun lado accesible cuando el mail esta deshabilitado
+      # (confirmado en la practica: ni logs ni la UI del admin panel lo
+      # muestran). Las 5 variables van siempre juntas -- dejar solo alguna
+      # vacia revienta el arranque (ver historial de esta spec).
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_SECURITY=starttls
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_FROM=${SMTP_FROM}
+      - SMTP_FROM_NAME=Omnia Vault
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
     ports:
       - "127.0.0.1:8222:80"
     volumes:
