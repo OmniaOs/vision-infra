@@ -130,4 +130,10 @@ No hay work item de Plane que matchee este nombre (`plane_workitem_id: null`). `
 
 > Supuesto: el puerto de host `8222` para Vaultwarden se eligió por estar libre frente a los ya usados (`3000`, `4000`, `4320`, `6333`, `8765`). Es arbitrario — puede cambiarse sin impacto en el diseño si colisiona con algo no documentado en `DEPLOY_COOLIFY.md`.
 
-> Nota de seguimiento (fuera de alcance de esta spec, anotada para no perderla): una vez el acceso esté resuelto, falta definir la convención de **contenido** de la memoria — qué distingue algo que va en `omnia-global` de algo que queda solo en `vision/`, cómo nombrar/etiquetar una entrada para que sea buscable entre proyectos, y cómo evitar que escritura en volumen sin estructura vuelva el store ruidoso. Candidata a spec propia una vez esta se cierre.
+> Nota de seguimiento — **resuelta el 2026-09-23**, ver
+> [`memory/CONVENCION-DE-CONTENIDO.md`](../../../../memory/CONVENCION-DE-CONTENIDO.md).
+> Incluye un hallazgo no anticipado: `add_memories` no guarda texto tal cual,
+> corre su propia extracción de hechos atómicos vía LLM (fragmenta párrafos,
+> descarta tags entre corchetes, y a veces no guarda nada sin error) —
+> probado en vivo sembrando las primeras entradas reales en
+> `omnia-memory-global`.

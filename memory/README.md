@@ -41,6 +41,13 @@ recurso de Coolify que hostea la memoria en el VPS. Deploy: ver
 
 `vision/` + handoffs siguen siendo la fuente de verdad del proyecto. basic-memory es memoria **complementaria** del agente, no la canónica. No dupliques decisiones de arquitectura fuera de `vision/`.
 
+## Qué escribir, dónde, y cómo
+
+Ver [`CONVENCION-DE-CONTENIDO.md`](CONVENCION-DE-CONTENIDO.md) — incluye
+hallazgos reales sobre cómo `add_memories` extrae y a veces descarta
+contenido, probados en vivo contra `omnia-memory-global`. Leerlo antes de
+escribir memoria en volumen.
+
 ## Futuro: Hermes
 
 Si más adelante quieren un agente autónomo siempre encendido (daemon, cron, auto-skills) que acumule conocimiento del equipo, Hermes encaja en Hetzner/Coolify y puede usar Obsidian como uno de sus knowledge bases. Es un proyecto en sí mismo; evaluar cuando Fases 1–4 estén asentadas.
