@@ -123,8 +123,25 @@ $vbsLines = @(
 $vbsLines | Set-Content -Encoding ASCII $vbsPath
 Write-Host "Autoarranque instalado en: $vbsPath"
 
-Write-Host "Iniciando el tunel ahora (sin esperar al proximo login)..."
-Start-Process -FilePath "wscript.exe" -ArgumentList "`"$vbsPath`"" -WindowStyle Hidden
+# Idempotencia (INV-6): si el puerto local ya esta escuchando, ya hay un
+# tunel vivo (de esta corrida o de una anterior) -- lanzar otro solo haria
+# que el segundo falle el bind del puerto y quede reintentando en vano cada
+# 5s para siempre. El .vbs de arriba ya quedo (re)instalado igual.
+$tunnelPort = 8765
+$yaEscuchando = $false
+try {
+  $tcp = New-Object System.Net.Sockets.TcpClient
+  $tcp.Connect("127.0.0.1", $tunnelPort)
+  $yaEscuchando = $tcp.Connected
+  $tcp.Close()
+} catch {}
+
+if ($yaEscuchando) {
+  Write-Host "El tunel ya esta corriendo (puerto $tunnelPort activo) -- no se lanza otro."
+} else {
+  Write-Host "Iniciando el tunel ahora (sin esperar al proximo login)..."
+  Start-Process -FilePath "wscript.exe" -ArgumentList "`"$vbsPath`"" -WindowStyle Hidden
+}
 
 Write-Host "== Paso 6/6: variables de entorno persistentes de usuario =="
 foreach ($line in Get-Content $envFile) {
