@@ -88,15 +88,25 @@ $token = Read-Host "OMNIA_MEMORY_TOKEN (te lo pasa el admin, o esta en tu vault 
 $tokenPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
   [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($token))
 
-@"
-OMNIA_MEMORY_MCP_URL=http://localhost:8765/mcp/claude/sse/$Proyecto
-OMNIA_MEMORY_GLOBAL_MCP_URL=http://localhost:8765/mcp/claude/sse/omnia-global
-OMNIA_MEMORY_TOKEN=$tokenPlain
-OMNIA_MEMORY_SSH_HOST=$SshHost
-OMNIA_MEMORY_SSH_USER=visiontunnel
-OMNIA_MEMORY_SSH_KEY=$keyPath
-OMNIA_MEMORY_TUNNEL_PORTS=8765
-"@ | Set-Content -Encoding utf8 $envFile
+$envLines = @(
+  "OMNIA_MEMORY_MCP_URL=http://localhost:8765/mcp/claude/sse/$Proyecto"
+  "OMNIA_MEMORY_GLOBAL_MCP_URL=http://localhost:8765/mcp/claude/sse/omnia-global"
+  "OMNIA_MEMORY_TOKEN=$tokenPlain"
+  "OMNIA_MEMORY_SSH_HOST=$SshHost"
+  "OMNIA_MEMORY_SSH_USER=visiontunnel"
+  # Forward slashes: memory/tunnel.sh (bash) hace `source` de este archivo, y
+  # en una asignacion sin comillas bash usa `\` como escape -- una ruta de
+  # Windows con `\` se corrompe al sourcearla (confirmado en la practica).
+  # Windows/Git-Bash aceptan rutas con `/` sin problema para -i de ssh.
+  ("OMNIA_MEMORY_SSH_KEY=" + $keyPath.Replace('\', '/'))
+  "OMNIA_MEMORY_TUNNEL_PORTS=8765"
+)
+# bash hace `source` de este archivo -- tiene que ser UTF-8 SIN BOM y con
+# saltos de linea \n puros. `Set-Content -Encoding utf8` en Windows
+# PowerShell 5.1 agrega BOM (bash lo interpreta como parte del primer token
+# y revienta con "No such file or directory" -- confirmado en la practica).
+$envContent = ($envLines -join "`n") + "`n"
+[System.IO.File]::WriteAllText($envFile, $envContent, (New-Object System.Text.UTF8Encoding($false)))
 
 Write-Host "== Paso 5/6: registrando el tunel como tarea de autoarranque =="
 # Deliberadamente NO usa Task Scheduler: Register-ScheduledTask pide privilegios

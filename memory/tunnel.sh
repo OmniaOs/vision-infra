@@ -41,10 +41,15 @@ echo "  Memoria MCP → http://localhost:8765  |  Ctrl+C para cerrar"
 # -N: sin shell remoto (el usuario del túnel no tiene shell de todos modos)
 # ServerAliveInterval: mantiene vivo el túnel en redes con timeouts agresivos
 # ExitOnForwardFailure: si el puerto local está ocupado, falla claro en vez de colgar
+# StrictHostKeyChecking=accept-new: confía sola en un host nuevo (primera
+# conexión) sin pedir confirmación interactiva -- necesario porque el túnel
+# corre en background sin terminal visible (autoarranque); sigue rechazando
+# si la llave de un host YA conocido cambia (protección MITM intacta).
 exec ssh -N \
   -o ExitOnForwardFailure=yes \
   -o ServerAliveInterval=30 \
   -o ServerAliveCountMax=3 \
+  -o StrictHostKeyChecking=accept-new \
   -i "$OMNIA_MEMORY_SSH_KEY" \
   $FORWARDS \
   "$OMNIA_MEMORY_SSH_USER@$OMNIA_MEMORY_SSH_HOST"
