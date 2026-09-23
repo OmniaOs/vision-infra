@@ -13,8 +13,11 @@
        "omnia-memory-tunnel-ssh-key") a ~/.ssh/.
     4. Escribe memory/.memory.env con los valores conocidos del repo mas lo
        que el vault entrego.
-    5. Registra una Tarea Programada que mantiene memory/tunnel.sh corriendo
-       en background, con reintento automatico, iniciando sola al loguearse.
+    5. Instala un lanzador en la carpeta "Startup" de Windows que mantiene
+       memory/tunnel.sh corriendo en background (con reintento automatico
+       si la conexion se corta) e inicia solo al loguearse -- sin pedir
+       privilegios de administrador (Task Scheduler los pide incluso con
+       RunLevel Limited; Startup nunca).
     6. Fija las variables OMNIA_MEMORY_* como variables de entorno de
        USUARIO persistentes (no requiere admin de Windows).
 
@@ -36,7 +39,7 @@ $repoRoot = (Resolve-Path "$PSScriptRoot\..\..").Path
 $sshDir = "$HOME\.ssh"
 $keyPath = "$sshDir\id_ed25519_omnia_memory"
 $envFile = "$repoRoot\memory\.memory.env"
-$taskName = "OmniaMemoryTunnel"
+$vbsPath = Join-Path ([Environment]::GetFolderPath("Startup")) "OmniaMemoryTunnel.vbs"
 
 function Test-Command($name) { return [bool](Get-Command $name -ErrorAction SilentlyContinue) }
 
@@ -96,15 +99,22 @@ OMNIA_MEMORY_TUNNEL_PORTS=8765
 "@ | Set-Content -Encoding utf8 $envFile
 
 Write-Host "== Paso 5/6: registrando el tunel como tarea de autoarranque =="
+# Deliberadamente NO usa Task Scheduler: Register-ScheduledTask pide privilegios
+# de administrador incluso con -RunLevel Limited (confirmado en la practica --
+# "Acceso denegado" con una cuenta estandar). La carpeta Startup de Windows
+# corre lo que sea con el proceso de logon del propio usuario, sin elevacion,
+# nunca -- es el unico mecanismo nativo que cumple INV-7 de verdad.
 $bashExe = "C:\Program Files\Git\bin\bash.exe"
 $loopCmd = "cd '$repoRoot' && while true; do bash memory/tunnel.sh; sleep 5; done"
-$action = New-ScheduledTaskAction -Execute $bashExe -Argument "-lc `"$loopCmd`""
-$trigger = New-ScheduledTaskTrigger -AtLogOn
-$settings = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) `
-  -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)
-Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings `
-  -RunLevel Limited -Force -Description "Tunel SSH persistente a la memoria compartida de Omnia (self-service-memory-tunnel-onboarding)" | Out-Null
-Start-ScheduledTask -TaskName $taskName
+$vbsLines = @(
+  'Set WshShell = CreateObject("WScript.Shell")'
+  ('WshShell.Run """' + $bashExe + '"" -lc ""' + $loopCmd + '""", 0, False')
+)
+$vbsLines | Set-Content -Encoding ASCII $vbsPath
+Write-Host "Autoarranque instalado en: $vbsPath"
+
+Write-Host "Iniciando el tunel ahora (sin esperar al proximo login)..."
+Start-Process -FilePath "wscript.exe" -ArgumentList "`"$vbsPath`"" -WindowStyle Hidden
 
 Write-Host "== Paso 6/6: variables de entorno persistentes de usuario =="
 foreach ($line in Get-Content $envFile) {
@@ -115,4 +125,4 @@ foreach ($line in Get-Content $envFile) {
 
 Write-Host ""
 Write-Host "Listo. Cierra y vuelve a abrir tu IDE para que tome las variables nuevas."
-Write-Host "El tunel ya corre en background (tarea programada '$taskName') y se reconecta solo."
+Write-Host "El tunel ya corre en background y se reconecta solo -- y va a arrancar sin que hagas nada la proxima vez que inicies sesion en Windows."

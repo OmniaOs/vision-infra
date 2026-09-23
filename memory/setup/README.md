@@ -52,8 +52,9 @@ Mientras tanto, seguí el flujo manual documentado en
   [Git for Windows](https://git-scm.com/download/win) primero.
 - **Querés desarmar todo en una máquina** →
   ```powershell
-  Unregister-ScheduledTask -TaskName OmniaMemoryTunnel -Confirm:$false
+  Remove-Item "$([Environment]::GetFolderPath('Startup'))\OmniaMemoryTunnel.vbs"
   Remove-Item memory\.memory.env
+  # y cerrá manualmente cualquier bash.exe corriendo el túnel (Task Manager)
   ```
   y volvé al flujo manual de `memory/INSTRUCTIVO.md` si lo necesitás
   mientras tanto.
