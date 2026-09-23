@@ -20,7 +20,7 @@ services:
       - WEBSOCKET_ENABLED=true
       - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_FROM=${SMTP_FROM:-}
-      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_PORT=${SMTP_PORT:-}
       - SMTP_USERNAME=${SMTP_USERNAME:-}
       - SMTP_PASSWORD=${SMTP_PASSWORD:-}
     ports:
