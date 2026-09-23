@@ -47,7 +47,36 @@ lo específico del proyecto → `omnia-memory`; lo generalizable → `omnia-memo
 - `memory/.memory.env.example` — plantilla de conexión (URL de proyecto + global).
 - Ignoró `memory/.memory.env` en `.gitignore`.
 
-## Puesta en marcha (por dev)
+## Puesta en marcha (por dev) — recomendado: setup self-service (Windows)
+
+Desde `self-service-memory-tunnel-onboarding` (ver
+[`vision/specs/services/self-service-memory-tunnel-onboarding/`](../vision/specs/services/self-service-memory-tunnel-onboarding/)),
+el camino recomendado en Windows es un script que hace todo esto por vos, una
+sola vez por máquina — sin volver a depender del admin cada vez que cambiás
+de equipo físico:
+
+```powershell
+.\memory\setup\windows.ps1
+```
+
+Te pide un login simple contra [Vaultwarden](../vault/README.md) (tu email +
+contraseña maestra, +2FA si la activaste) para recuperar tu llave SSH, y
+deja el túnel corriendo solo en background (autoarranque + reconexión
+automática) y las variables `OMNIA_MEMORY_*` ya fijadas — no hace falta abrir
+ninguna terminal manualmente ni volver a correr `source` en cada sesión.
+
+Ver [`memory/setup/README.md`](setup/README.md) para el detalle completo,
+qué hacer si algo falla, y el estado de macOS/Linux (todavía sin script
+equivalente — usar el flujo manual de abajo mientras tanto).
+
+**Requisito previo (lo hace el admin, una sola vez por persona):** autorizar
+tu llave pública bajo `visiontunnel` y subir tu privada a tu cuenta de
+Vaultwarden — ver [`vault/README.md`](../vault/README.md#alta-de-una-persona-runbook-para-el-admin).
+
+## Puesta en marcha (por dev) — flujo manual (fallback, todo SO)
+
+Sigue funcionando igual que siempre — útil si todavía no corriste el setup
+self-service, estás en macOS/Linux, o preferís no usar Vaultwarden:
 
 0. **Acceso (una sola vez):** genera tu llave SSH si no tienes
    (`ssh-keygen -t ed25519`) y manda la **pública** (`~/.ssh/id_ed25519.pub`)

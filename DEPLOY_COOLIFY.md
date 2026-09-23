@@ -25,8 +25,12 @@
    potencialmente `metrics-hub/` pueden apuntar su LLM al gateway
    (`HERMES_LLM_BASE_URL=https://gateway.omniaos.ai`), así que necesita
    existir antes.
-2. **`memory/`**
-3. **`metrics-hub/`**
+2. **`vault/`** — sin dependencias de los otros tres, pero el onboarding
+   self-service de `memory/` (`memory/setup/windows.ps1`) depende de que ya
+   exista, así que conviene desplegarlo antes de que el equipo empiece a
+   usar ese flujo.
+3. **`memory/`**
+4. **`metrics-hub/`**
 
 ## Por servicio
 
@@ -81,6 +85,27 @@
   `.env.example`). Mismo estado que `gateway.omniaos.ai`: sin registro DNS
   hoy, nunca configurado.
 
+### `vault/` — Vaultwarden
+
+- Recurso Coolify: Docker Compose, build desde `vault/`.
+- Secrets (ver `vault/.env.example`): `VAULT_DOMAIN`, `VAULT_ADMIN_TOKEN`
+  (hash argon2, ver `vault/.env.example` para cómo generarlo), `SMTP_*`
+  (opcionales — sin ellos, las invitaciones se copian a mano desde `/admin`).
+- Puerto `8222` (host) → `80` (contenedor), **loopback-only**, mismo patrón
+  post-incidente que los otros tres servicios.
+- Dominio: `vault.omniaos.ai`. Mismo gotcha ya documentado abajo para
+  `metrics-hub`: el campo "Domains for vault" en Coolify necesita el
+  **esquema completo** (`https://vault.omniaos.ai`), no el dominio a secas.
+- `SIGNUPS_ALLOWED=false` — solo entra quien el admin invite desde
+  `/admin`. Sin BasicAuth adicional de Traefik: Vaultwarden ya exige su
+  propio login (email + contraseña maestra), agregar una segunda capa de
+  auth sería redundante (mismo razonamiento que `gateway`, que tampoco lleva
+  BasicAuth por tener su propia auth Bearer).
+- Custodia la llave SSH privada de cada persona para el onboarding
+  self-service al túnel de `memory/` — ver
+  [`vault/README.md`](vault/README.md) y
+  `vision/specs/services/self-service-memory-tunnel-onboarding/`.
+
 ### `metrics-hub/`
 
 - Recurso Coolify: Docker Compose, build desde `metrics-hub/`.
@@ -125,7 +150,9 @@ Desde el commit `82cba23` (24-jul-2026):
   que la UI exponía tokens que ni siquiera usaba).
 - El servicio de sistema `omnia-portblock` en el VPS bloquea (`iptables`/
   `ip6tables` en `DOCKER-USER`) el acceso externo directo a los puertos de
-  las apps: `3000`, `4000`, `4320`, `6333`, `8765`. Versionado en
+  las apps: `3000`, `4000`, `4320`, `6333`, `8765`, `8222` (este último
+  agregado 2026-09-23 junto con `vault/`, ver
+  `vision/specs/services/self-service-memory-tunnel-onboarding/`). Versionado en
   [`infra/vps/`](infra/vps/) desde el 2026-08-27 — antes solo existía en el
   VPS, sin respaldo.
   **Bug corregido el 2026-08-27**: la lista original incluía también `80` y

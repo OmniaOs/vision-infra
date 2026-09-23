@@ -11,9 +11,14 @@ Servicio systemd que corre una vez al arrancar Docker y bloquea (vía
 `iptables`/`ip6tables` en la cadena `DOCKER-USER`, que Docker no expone a
 `ufw`) el acceso externo directo a los puertos de las apps de este repo
 (`3000` openmemory-ui, `4000` gateway, `4320` metrics-hub, `6333` qdrant,
-`8765` openmemory-mcp). Es la segunda capa de defensa post-incidente
-20-jul-2026, independiente del binding `127.0.0.1:PUERTO:PUERTO` de cada
-`docker-compose.yml` — ver `DEPLOY_COOLIFY.md`.
+`8765` openmemory-mcp, `8222` vault/Vaultwarden). Es la segunda capa de
+defensa post-incidente 20-jul-2026, independiente del binding
+`127.0.0.1:PUERTO:PUERTO` de cada `docker-compose.yml` — ver
+`DEPLOY_COOLIFY.md`.
+
+> `8222` (vault) se agregó el 2026-09-23 como parte de
+> `self-service-memory-tunnel-onboarding` — ver
+> `vision/specs/services/self-service-memory-tunnel-onboarding/`.
 
 **Bug real encontrado y corregido el 2026-08-27**: el script original incluía
 `80` y `443` (los puertos de Traefik/`coolify-proxy`) en la lista de bloqueo.

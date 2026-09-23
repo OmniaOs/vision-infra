@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "projectName": "vision-infra",
   "created": "2026-08-26T19:45:40.232Z",
-  "lastUpdated": "2026-09-14T18:00:00Z",
+  "lastUpdated": "2026-09-23T00:00:00Z",
   "features": [
     {
       "name": "expose-metrics-hub-domain",
@@ -33,6 +33,12 @@
       "status": "in-progress",
       "completedAt": null,
       "position": 5
+    },
+    {
+      "name": "self-service-memory-tunnel-onboarding",
+      "status": "pending",
+      "completedAt": null,
+      "position": 6
     }
   ]
 }

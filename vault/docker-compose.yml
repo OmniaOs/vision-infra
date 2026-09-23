@@ -1,0 +1,32 @@
+# Omnia -- Vaultwarden (custodia de llaves SSH del equipo para el tunel de
+# memoria compartida; server Bitwarden-compatible, self-hosted).
+#
+# SEGURIDAD (mismo patron post-incidente 20-jul-2026 que gateway/memory/
+# metrics-hub, ver DEPLOY_COOLIFY.md): puerto publicado solo en 127.0.0.1 --
+# acceso remoto por dominio autenticado (Traefik + Coolify), nunca puerto
+# abierto a internet sin auth. SIGNUPS_ALLOWED=false: solo se entra por
+# invitacion del admin, nunca por registro abierto.
+#
+# Spec: vision/specs/services/self-service-memory-tunnel-onboarding/
+services:
+  vault:
+    image: vaultwarden/server:latest
+    restart: unless-stopped
+    environment:
+      - DOMAIN=${VAULT_DOMAIN}
+      - ADMIN_TOKEN=${VAULT_ADMIN_TOKEN}
+      - SIGNUPS_ALLOWED=false
+      - INVITATIONS_ALLOWED=true
+      - WEBSOCKET_ENABLED=true
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_FROM=${SMTP_FROM:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+    ports:
+      - "127.0.0.1:8222:80"
+    volumes:
+      - vault_data:/data
+
+volumes:
+  vault_data:
