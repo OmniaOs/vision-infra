@@ -164,8 +164,15 @@ if ($yaEscuchando) {
 }
 
 Write-Host "== Paso 7/7: variables de entorno persistentes de usuario =="
+# OMNIA_MEMORY_MCP_URL queda afuera a proposito: es el namespace del
+# PROYECTO (.../sse/<proyecto>), y esta variable es de USUARIO (machine-wide,
+# aplica a todos los repos que abras). Si la persistieras aca, abrir dos
+# repos distintos (ej. OmniaPOS y vision-infra) haria que uno de los dos
+# apunte al namespace de memoria equivocado. Cada repo hardcodea su propio
+# slug directo en su .mcp.json -- ver memory/RUNBOOK.md, "Repo nuevo".
 foreach ($line in Get-Content $envFile) {
   if ($line -match '^\s*#' -or $line -notmatch '=') { continue }
+  if ($line -match '^OMNIA_MEMORY_MCP_URL=') { continue }
   $k, $v = $line -split '=', 2
   [Environment]::SetEnvironmentVariable($k, $v, "User")
 }

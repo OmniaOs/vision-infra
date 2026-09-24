@@ -2,7 +2,7 @@
   "mcpServers": {
     "omnia-memory": {
       "type": "sse",
-      "url": "${OMNIA_MEMORY_MCP_URL}",
+      "url": "http://localhost:8765/mcp/claude/sse/vision-infra",
       "headers": {
         "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}"
       }
