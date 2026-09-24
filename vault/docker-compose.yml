@@ -36,22 +36,20 @@ services:
       - vault_data:/data
 
   # Bootstrap de una sola linea: `irm https://vault.omniaos.ai/setup | iex`.
-  # Reutiliza el mismo dominio y recurso Coolify que vault (cero
-  # infraestructura nueva) -- Traefik enruta por path al mismo dominio,
-  # container-to-container, hacia este contenedor en vez de al de vault.
-  # Sin `ports:` a proposito: nada sensible aca que justifique un fallback
-  # de tunel SSH directo (a diferencia de vault/memory/metrics-hub), asi que
-  # no hace falta sumar nada a infra/vps/omnia-portblock.sh.
+  # Reutiliza el mismo recurso Coolify que vault (cero infraestructura
+  # nueva). Dominio propio via el campo "Domains for setup" que Coolify
+  # genera solo al detectar un segundo servicio en el compose -- se probo
+  # primero con labels de Traefik escritas a mano (Host + PathPrefix) y
+  # eso hizo que Coolify dejara de aplicarle SUS PROPIAS labels a `vault`
+  # en el siguiente deploy (vault quedo sin ningun label de Traefik,
+  # confirmado con `docker inspect` -- 503 hasta en la raiz). Dejar que
+  # Coolify autogenere el router de `setup` igual que ya hace con
+  # vault/gateway/metrics-hub evita ese conflicto.
   setup:
     build:
       context: ..
       dockerfile: vault/setup/Dockerfile
     restart: unless-stopped
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.omnia-setup.rule=Host(`vault.omniaos.ai`) && PathPrefix(`/setup`)"
-      - "traefik.http.routers.omnia-setup.priority=100"
-      - "traefik.http.services.omnia-setup.loadbalancer.server.port=80"
 
 volumes:
   vault_data:
