@@ -41,6 +41,12 @@ recurso de Coolify que hostea la memoria en el VPS. Deploy: ver
 
 `vision/` + handoffs siguen siendo la fuente de verdad del proyecto. basic-memory es memoria **complementaria** del agente, no la canónica. No dupliques decisiones de arquitectura fuera de `vision/`.
 
+## Cómo dar de alta a alguien / configurar un repo
+
+Ver [`RUNBOOK.md`](RUNBOOK.md) — pasos concretos para: alta de un dev
+nuevo, un repo que nunca tuvo memoria compartida, y un repo existente que
+ya tenía el bloque viejo/roto en su `.mcp.json`.
+
 ## Qué escribir, dónde, y cómo
 
 Ver [`CONVENCION-DE-CONTENIDO.md`](CONVENCION-DE-CONTENIDO.md) — incluye
