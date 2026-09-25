@@ -54,6 +54,20 @@ hallazgos reales sobre cómo `add_memories` extrae y a veces descarta
 contenido, probados en vivo contra `omnia-memory-global`. Leerlo antes de
 escribir memoria en volumen.
 
+## Skills (forma ejecutable de este runbook y esta convención)
+
+Fuente canónica en `VisionFramework/skills/` (se distribuyen a cada repo
+vía `vision init`). Evitan tener que aplicar el runbook/convención a mano:
+
+- **`memory-setup`** — aplica `RUNBOOK.md` secciones 2 y 3: agrega o
+  repara el bloque `omnia-memory`/`omnia-memory-global` del `.mcp.json` de
+  un repo (alta nueva, retrofit de URL rota, o worktree que hereda slug).
+- **`memory-write`** — aplica `CONVENCION-DE-CONTENIDO.md`: decide
+  namespace, redacta cada hecho como decisión del equipo, reintenta si
+  `add_memories` devuelve vacío, verifica con `search_memory`.
+- **`memory-recall`** — busca en ambos namespaces con variantes de
+  keywords antes de encarar una tarea; nunca usa `list_memories`.
+
 ## Futuro: Hermes
 
 Si más adelante quieren un agente autónomo siempre encendido (daemon, cron, auto-skills) que acumule conocimiento del equipo, Hermes encaja en Hetzner/Coolify y puede usar Obsidian como uno de sus knowledge bases. Es un proyecto en sí mismo; evaluar cuando Fases 1–4 estén asentadas.
