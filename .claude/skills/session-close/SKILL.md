@@ -1,6 +1,6 @@
 ---
 name: session-close
-description: 'Checklist de cierre para CUALQUIER tipo de sesión de trabajo — tarea de spec, hotfix (con o sin PR), o soporte/diagnóstico puro en un VPS sin tocar código. Decide si hay una lección para memory-write y/o trabajo a medias para handoff, sin depender de que exista un commit. Invocar al terminar una sesión, la tengas o no en un repo con cambios de código.'
+description: 'Checklist de cierre para CUALQUIER tipo de sesión de trabajo — tarea de spec, hotfix (con o sin PR), o soporte/diagnóstico puro en un VPS sin tocar código. Decide si hay una lección corta para memory-write, una nota larga para omnia-knowledge, y/o trabajo a medias para handoff, sin depender de que exista un commit. Invocar al terminar una sesión, la tengas o no en un repo con cambios de código.'
 ---
 
 # Session Close
@@ -20,8 +20,9 @@ rama, o una sesión que solo corrió `script_run` contra un servidor y no
 escribió ni una línea de código. Es la única skill que hace falta recordar
 al cerrar, sin importar qué tipo de sesión fue.
 
-No reemplaza a `memory-write` ni a `handoff` — los invoca. Esta skill es
-solo el checklist que decide SI corresponde invocarlos.
+No reemplaza a `memory-write`, `omnia-knowledge` ni a `handoff` — los
+invoca. Esta skill es solo el checklist que decide CUÁL(ES) corresponde
+invocar.
 
 ## Entrada
 
@@ -50,7 +51,30 @@ Si no (la sesión fue una consulta simple, o no produjo ningún hallazgo
 nuevo) → no invoques `memory-write`. No fuerces una entrada solo por
 cerrar el checklist.
 
-### Paso 2 — Evaluar si queda trabajo a medias
+### Paso 2 — Evaluar si el hallazgo amerita una nota larga en `omnia-knowledge`
+
+Independiente del Paso 1 — no son excluyentes. Un mismo hallazgo puede
+generar ambos (un hecho corto en Mem0 para búsqueda rápida, y una nota
+completa acá para quien necesite el detalle), solo uno, o ninguno.
+
+Criterio (ver `omnia-knowledge/CONVENTIONS.md`): ¿el hallazgo tiene
+estructura real — línea de tiempo, varias observaciones conectadas,
+causa + fix + pendientes, una decisión de arquitectura con su
+razonamiento, la ficha de una implementación de cliente? Eso se lee
+mejor como documento que como oración suelta.
+
+Si sí → escribí la nota en `omnia-knowledge/projects/<proyecto-o-cliente>/`
+con el frontmatter y formato de `CONVENTIONS.md` (`Observations`,
+`Relations`). Si el proyecto/cliente no tiene carpeta todavía, creála.
+
+Si no (el hallazgo es una lección corta, ya cubierta por el Paso 1) → no
+crees una nota — no dupliques el mismo hecho en las dos capas sin motivo.
+
+Si el MCP `basic-memory` no está conectado en esta sesión (repo sin ese
+bloque en `.mcp.json`, o el piloto todavía no desplegado) → Caso Especial
+3, no bloquea el resto del checklist.
+
+### Paso 3 — Evaluar si queda trabajo a medias
 
 ¿La tarea de esta sesión quedó incompleta, bloqueada, o en un estado que
 otra persona/modelo/cuenta necesitaría entender para retomarla sin
@@ -64,10 +88,10 @@ Si sí → invoca la skill `handoff` para dejarlo documentado en
 Si no (la tarea cerró completa, o fue una consulta sin tarea de por
 medio) → no invoques `handoff`.
 
-### Paso 3 — Reportar
+### Paso 4 — Reportar
 
-Nunca sale en silencio total, aunque ninguno de los dos pasos haya
-aplicado — reporta la decisión tomada en ambos, con la razón, para que
+Nunca sale en silencio total, aunque ninguno de los tres pasos haya
+aplicado — reporta la decisión tomada en los tres, con la razón, para que
 quien lea la sesión después sepa que el checklist corrió y qué decidió,
 no que se saltó.
 
@@ -76,7 +100,8 @@ no que se saltó.
 ```markdown
 ### session-close
 
-- Memoria: <"guardado(s) N hecho(s) vía memory-write" | "nada que guardar — <razón corta>">
+- Memoria (Mem0): <"guardado(s) N hecho(s) vía memory-write" | "nada que guardar — <razón corta>">
+- Nota (omnia-knowledge): <"escrita en projects/<x>/..." | "no ameritaba nota larga" | "basic-memory no conectado en esta sesión">
 - Handoff: <"escrito vía handoff" | "no hacía falta — <razón corta>">
 ```
 
@@ -87,7 +112,8 @@ no que se saltó.
 ```markdown
 ### session-close
 
-- Memoria: nada que guardar — la sesión fue una consulta sin hallazgo nuevo.
+- Memoria (Mem0): nada que guardar — la sesión fue una consulta sin hallazgo nuevo.
+- Nota (omnia-knowledge): no ameritaba nota larga.
 - Handoff: no hacía falta — no había ninguna tarea en curso.
 ```
 
@@ -97,18 +123,31 @@ Si alguna de las dos skills invocadas no puede completarse (ej. el MCP de
 memoria no está conectado), reporta ese Caso Especial tal como esa skill
 lo define — `session-close` no lo oculta ni lo reintenta por su cuenta.
 
+### Caso Especial 3 — `basic-memory` (omnia-knowledge) no conectado
+
+```markdown
+- Nota (omnia-knowledge): no se pudo escribir — el MCP `basic-memory` no
+  está conectado en esta sesión. Si el repo debería tenerlo (piloto ya
+  desplegado), revisá `.mcp.json`; si el piloto todavía no está
+  desplegado en el VPS, es esperado — ver `omnia-knowledge/deploy/DEPLOY.md`.
+```
+
 ## Reglas Clave
 
 1. **Agnóstico a si hubo código o commit.** El gatillo es "terminó la
    sesión", no "hubo un push". Una sesión de puro diagnóstico en un VPS
    pasa por el mismo checklist que una de código.
 2. **No reinventa el criterio de qué guardar** — delega en `memory-write`
-   (namespace, redacción, verificación) y en `handoff` (formato de
-   continuidad). Esta skill solo decide SI corresponde invocarlos.
-3. **Nunca fuerza una entrada** para no cerrar el checklist en blanco —
+   (namespace, redacción, verificación), en `omnia-knowledge/CONVENTIONS.md`
+   (formato de nota larga) y en `handoff` (formato de continuidad). Esta
+   skill solo decide CUÁL corresponde invocar.
+3. **Mem0 y omnia-knowledge no son excluyentes.** Un mismo hallazgo puede
+   generar un hecho corto Y una nota larga — sirven para búsquedas
+   distintas (semántica rápida vs. lectura completa).
+4. **Nunca fuerza una entrada** para no cerrar el checklist en blanco —
    "nada que guardar" es una salida válida y esperable la mayoría de las
    veces.
-4. **No depende de ningún hook.** Se invoca a mano al cerrar — un
+5. **No depende de ningún hook.** Se invoca a mano al cerrar — un
    mecanismo automático vía hooks de Claude Code no es viable hoy sin
    crear ruido en cada turno (`Stop` dispara por turno, no por sesión;
    `SessionEnd` no puede reengachar al modelo para que actúe).
