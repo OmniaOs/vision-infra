@@ -57,11 +57,13 @@ Independiente del Paso 1 — no son excluyentes. Un mismo hallazgo puede
 generar ambos (un hecho corto en Mem0 para búsqueda rápida, y una nota
 completa acá para quien necesite el detalle), solo uno, o ninguno.
 
-Criterio (ver `omnia-knowledge/CONVENTIONS.md`): ¿el hallazgo tiene
-estructura real — línea de tiempo, varias observaciones conectadas,
-causa + fix + pendientes, una decisión de arquitectura con su
-razonamiento, la ficha de una implementación de cliente? Eso se lee
-mejor como documento que como oración suelta.
+Criterio (fuente canónica: `vision-infra/memory/CONVENCION-DE-CONTENIDO.md`,
+sección "Regla para decidir Mem0 vs. `omnia-knowledge`" — no repetirlo acá
+si cambia, solo linkearlo): ¿el hallazgo tiene estructura real — línea de
+tiempo, varias observaciones conectadas, causa + fix + pendientes, una
+decisión de arquitectura con su razonamiento, la ficha de una
+implementación de cliente? Eso se lee mejor como documento que como
+oración suelta.
 
 Si sí → escribí la nota en `omnia-knowledge/projects/<proyecto-o-cliente>/`
 con el frontmatter y formato de `CONVENTIONS.md` (`Observations`,

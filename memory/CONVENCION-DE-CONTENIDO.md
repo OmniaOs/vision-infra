@@ -12,24 +12,46 @@ la persona responsable.
 > 2026-09-23). El diseño original asumía que Mem0 guarda texto tal cual, con
 > tags. Es falso — ver "Cómo funciona realmente" abajo antes de escribir.
 
-## Los tres lugares, y cuál usar
+## Los cuatro lugares, y cuál usar
+
+> **Esta tabla es la fuente canónica.** `omnia-knowledge/README.md` y
+> cualquier otro doc que compare estas capas deben referenciar esta
+> sección, no copiarla — si hace falta actualizar el modelo, se actualiza
+> ACÁ primero y todo lo demás linkea. Confirmado que sin esta regla el
+> doc se desactualiza en el primer cambio (pasó con el piloto de
+> `omnia-knowledge`: existió una semana sin que este archivo lo supiera).
 
 | Lugar | Qué guarda | Quién lo lee |
 |---|---|---|
 | `vision/` + `telemetry/handoffs/` (git, por repo) | Arquitectura, specs, decisiones de producto — la **fuente de verdad** del proyecto | Cualquiera que abra ese repo |
-| `omnia-memory` (Mem0, namespace por proyecto) | Lecciones operativas de ESE proyecto que no son arquitectura pero sí utiles para una sesión futura ahí (gotchas del cliente, del stack, de esa base de código) | Agentes trabajando en ese repo — aislado, nunca cruza a otro cliente |
-| `omnia-memory-global` (Mem0, namespace compartido) | Lecciones de **ingeniería reutilizables entre repos** — herramientas, infra, patrones. **Cero datos de cliente, siempre** | Agentes en cualquier repo de Omnia |
+| `omnia-memory` (Mem0, namespace por proyecto) | Lecciones operativas cortas de ESE proyecto/cliente — un hecho, una oración | Agentes trabajando en ese repo — aislado, nunca cruza a otro cliente |
+| `omnia-memory-global` (Mem0, namespace compartido) | Lecciones de **ingeniería reutilizables entre repos**, cortas — herramientas, infra, patrones. **Cero datos de cliente, siempre** | Agentes en cualquier repo de Omnia |
+| `omnia-knowledge` (Basic Memory + Obsidian + Git, **piloto**) | Conocimiento **largo y estructurado**: incidentes completos, arquitectura de producto, implementaciones por cliente, traspasos narrados. Organizado por "proyecto" (no necesariamente un repo — puede ser un cliente, ver `omnia-knowledge/README.md`) | Agentes vía MCP + humanos vía Obsidian. Hoy solo `omniapos`/`frutal` (alcance del piloto) |
 
-**Regla para decidir global vs. proyecto:** *¿esta lección seguiría siendo
-cierta si mañana la leo trabajando en OTRO repo de Omnia, sin ningún contexto
-de este proyecto?* Si sí → `omnia-memory-global`. Si necesita saber de este
-proyecto/cliente para tener sentido → `omnia-memory`.
+**Regla para decidir global vs. proyecto (dentro de Mem0):** *¿esta lección
+seguiría siendo cierta si mañana la leo trabajando en OTRO repo de Omnia,
+sin ningún contexto de este proyecto?* Si sí → `omnia-memory-global`. Si
+necesita saber de este proyecto/cliente para tener sentido → `omnia-memory`.
 
 **Regla para decidir memoria vs. `vision/`:** si es una decisión de
 arquitectura o el propósito de una feature, va en `vision/specs/` — eso ya se
 versiona, se referencia por `/newspec` y `/modifyspec`, y no necesita
 duplicarse acá. La memoria es para lo que **no** tiene un lugar natural en
 `vision/`: el detalle operativo que te ahorra repetir una investigación.
+
+**Regla para decidir Mem0 vs. `omnia-knowledge`:** ¿el hallazgo tiene
+estructura real — línea de tiempo, varias observaciones conectadas, causa
++ fix + pendientes, una decisión con su razonamiento completo, la ficha de
+una implementación de cliente? Eso se lee mejor como documento
+(`omnia-knowledge`) que como oración suelta (Mem0). Un gotcha de una sola
+oración, sin nada más que agregar, sigue yendo a Mem0 — es más rápido de
+buscar ahí para ese tamaño, y `omnia-knowledge` todavía es un piloto
+limitado a `omniapos`/`frutal`. Las dos capas **no son excluyentes**: un
+mismo hallazgo grande puede generar una nota larga acá y, además, un hecho
+corto en Mem0-global si la lección de fondo es reutilizable (ver el
+incidente de assets de Frutal, migrado como caso real: nota completa en
+`omnia-knowledge/projects/frutal/incidentes/`, más el gotcha genérico de
+Coolify en `omnia-memory-global`).
 
 ## Cómo funciona realmente `add_memories` (importante, no es intuitivo)
 
