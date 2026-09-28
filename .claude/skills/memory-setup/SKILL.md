@@ -1,6 +1,6 @@
 ---
 name: memory-setup
-description: 'Configura el .mcp.json de un repo para conectarlo a la memoria compartida de Omnia (Mem0): agrega o repara los bloques omnia-memory (namespace del proyecto, slug hardcodeado) y omnia-memory-global (universal). Detecta alta nueva, retrofit de un bloque roto (${OMNIA_MEMORY_MCP_URL}), y git worktrees (heredan el slug del repo principal). No hace preguntas salvo conflicto de slug ya usado.'
+description: 'Configura el .mcp.json de un repo para conectarlo a TODA la memoria compartida de Omnia en un solo paso: Mem0 (omnia-memory con slug hardcodeado + omnia-memory-global) y Basic Memory (basic-memory, el piloto de conocimiento largo en omnia-knowledge). Detecta alta nueva, retrofit de un bloque roto (${OMNIA_MEMORY_MCP_URL}), y git worktrees (heredan el slug del repo principal). No hace preguntas salvo conflicto de slug ya usado.'
 ---
 
 # Memory Setup
@@ -18,6 +18,14 @@ que existiera esta skill).
 
 No escribe contenido en la memoria ni la consulta — solo cablea la
 conexión. Para eso ver `memory-write` y `memory-recall`.
+
+Cablea las **tres** conexiones en una sola corrida (`omnia-memory`,
+`omnia-memory-global`, `basic-memory`) — antes eran pasos manuales
+separados, lo que significaba que cada repo nuevo requería acordarse de
+tres cosas en vez de correr una skill. `basic-memory` no tiene namespace
+por repo (es un solo server con "proyectos" internos, ver
+`omnia-knowledge/README.md`), así que su bloque es el mismo en cualquier
+repo — no necesita el Paso 3 (slug) para nada.
 
 ## Entrada
 
@@ -113,14 +121,27 @@ Ejecuta los pasos en orden. No omitas pasos. No reordenes pasos.
    de `${OMNIA_MEMORY_GLOBAL_MCP_URL}` → no lo toques (personalización
    explícita de alguien); agrega la advertencia del Caso Especial 4 al
    reporte.
-3. Si el archivo no existía (`alta-nueva` sin archivo previo): créalo con
-   `{ "mcpServers": { ...bloques del Paso 5.1/5.2 } }`.
-4. Si existía: fusiona los bloques dentro de `mcpServers` **preservando
+3. Bloque objetivo para `mcpServers.basic-memory` (piloto `omnia-knowledge`
+   — ver ese repo, `deploy/DEPLOY.md`; sin `slug`, sin `Authorization`
+   header, porque Basic Memory no tiene auth propia y el túnel SSH es el
+   único control de acceso):
+   ```json
+   {
+     "type": "sse",
+     "url": "http://localhost:8420/mcp"
+   }
+   ```
+   Mismas reglas de no-pisar que `omnia-memory-global`: si
+   `mcpServers.basic-memory` ya existe con un `url` distinto, no lo
+   toques, agrega la advertencia del Caso Especial 5.
+4. Si el archivo no existía (`alta-nueva` sin archivo previo): créalo con
+   `{ "mcpServers": { ...bloques del Paso 5.1/5.2/5.3 } }`.
+5. Si existía: fusiona los bloques dentro de `mcpServers` **preservando
    textualmente** cualquier otra clave top-level y cualquier otro servidor
    ya presente (no reordenes, no reformatees lo que no tocaste).
-5. Escribe el archivo con indentación de 2 espacios, igual al resto de los
+6. Escribe el archivo con indentación de 2 espacios, igual al resto de los
    `.mcp.json` del monorepo.
-6. Relee y parsea el archivo escrito para confirmar que el JSON resultante
+7. Relee y parsea el archivo escrito para confirmar que el JSON resultante
    es válido. Si falla → esto es un bug de la skill, repórtalo como error,
    no lo dejes a medio escribir (restaura el contenido original si lo
    tenías en memoria).
@@ -137,8 +158,10 @@ skill (usuario o workflow) es intencional — algunos repos gitignoran
 ```markdown
 ### memory-setup — <nombre de carpeta de projectRoot>
 
-- Slug resuelto: `<slug>`<si fue worktree: " (heredado de <repo principal>, es un git worktree)">
-- Acción: <"archivo creado" | "bloque agregado a .mcp.json existente" | "URL rota reemplazada (retrofit)" | "ya estaba configurado, sin cambios">
+- Slug resuelto (`omnia-memory`): `<slug>`<si fue worktree: " (heredado de <repo principal>, es un git worktree)">
+- `omnia-memory`: <"archivo creado" | "bloque agregado" | "URL rota reemplazada (retrofit)" | "ya estaba, sin cambios">
+- `omnia-memory-global`: <"agregado" | "ya estaba, sin cambios" | "personalizado, no tocado">
+- `basic-memory`: <"agregado" | "ya estaba, sin cambios" | "personalizado, no tocado">
 - Archivo: `<path>/.mcp.json`
 <advertencias, una por línea, si las hay>
 
@@ -187,6 +210,13 @@ caso que detenga la skill, solo se agrega como nota.
 universal (`${OMNIA_MEMORY_GLOBAL_MCP_URL}`). La dejé como estaba.
 ```
 
+### Caso Especial 5 — `basic-memory` personalizado
+
+```markdown
+⚠️ `basic-memory` en este repo ya tenía una URL distinta a
+`http://localhost:8420/mcp`. La dejé como estaba.
+```
+
 ## Reglas Clave
 
 1. **El slug del proyecto nunca es una variable de entorno** en el
@@ -194,7 +224,7 @@ universal (`${OMNIA_MEMORY_GLOBAL_MCP_URL}`). La dejé como estaba.
    ahí es exactamente el bug que esta skill existe para reparar (dos repos
    abiertos en la misma máquina compitiendo por el mismo namespace).
 2. **Nunca pisa servidores MCP ya presentes** en el archivo que no sean
-   `omnia-memory` / `omnia-memory-global`.
+   `omnia-memory` / `omnia-memory-global` / `basic-memory`.
 3. **Nunca commitea ni pushea.**
 4. **Nunca sobreescribe un slug ya configurado distinto al inferido** sin
    que se lo pidan explícitamente (Caso Especial 2) — perder la conexión a
