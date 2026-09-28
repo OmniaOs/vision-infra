@@ -67,6 +67,11 @@ vía `vision init`). Evitan tener que aplicar el runbook/convención a mano:
   `add_memories` devuelve vacío, verifica con `search_memory`.
 - **`memory-recall`** — busca en ambos namespaces con variantes de
   keywords antes de encarar una tarea; nunca usa `list_memories`.
+- **`session-close`** — checklist de cierre para CUALQUIER sesión (spec,
+  hotfix, o soporte/diagnóstico puro sin código): decide si corresponde
+  `memory-write` y/o `handoff`, sin depender de que haya habido un commit.
+  Reemplaza a Hermes como gatillo principal de captura — Hermes (basado en
+  git log) nunca ve una sesión de puro soporte en un VPS.
 
 ## Futuro: Hermes
 
