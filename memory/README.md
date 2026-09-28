@@ -73,6 +73,16 @@ vía `vision init`). Evitan tener que aplicar el runbook/convención a mano:
   Reemplaza a Hermes como gatillo principal de captura — Hermes (basado en
   git log) nunca ve una sesión de puro soporte en un VPS.
 
+## Piloto: omnia-knowledge (Basic Memory + Obsidian + Git)
+
+Para contenido que Mem0 no puede sostener bien (documentos largos,
+incidentes completos, arquitectura de implementación por cliente) — no
+hechos atómicos de una oración. Propuesto por Emilio Dabdoub
+(`Investigacion-memoria-compartida-POS-ERP.md`, 2026-09-28), piloteado
+en el repo separado `omnia-knowledge`, limitado a `omniapos` + `frutal`
+mientras se valida. Complementa a Mem0, no lo reemplaza — ver el
+`README.md` de ese repo para el detalle de qué va en cada capa.
+
 ## Futuro: Hermes
 
 Si más adelante quieren un agente autónomo siempre encendido (daemon, cron, auto-skills) que acumule conocimiento del equipo, Hermes encaja en Hetzner/Coolify y puede usar Obsidian como uno de sus knowledge bases. Es un proyecto en sí mismo; evaluar cuando Fases 1–4 estén asentadas.
