@@ -1,7 +1,8 @@
 # Memoria compartida de Omnia: arquitectura y workflow
 
 > **Estado: 2026-09-29.** Método único (un token por persona) desplegado y
-> verificado de punta a punta. Migrados: `vision-infra`. Pendientes al final.
+> verificado de punta a punta. Repos y framework migrados localmente; falta
+> publicar y dar de alta al equipo (ver pendientes al final).
 > Esta es la **fuente canónica**; el resto de `memory/` es detalle o historia.
 
 ## Para qué sirve
@@ -114,7 +115,10 @@ del repo; escritura → `sync` → GitHub; el proyecto sobrevive a un redeploy.
 
 **Pendiente:**
 - [ ] **Rotar la credencial de `knowledge`**: la actual quedó expuesta en un chat y lleva un `\r` incrustado (funciona, pero rotar con `tr -d '\r\n'`).
-- [ ] **Migrar los `.mcp.json` de los demás repos** y las skills `memory-setup`, `memory-write` y `session-close` (siguen hablando de túnel y de `omnia-knowledge/projects/…`).
+- [x] **`.mcp.json` migrados en la máquina de Daniel:** 19 repos apuntan al gateway (cambios locales, sin commit; 13 de ellos ni siquiera versionan el archivo). Cada dev migra los suyos corriendo la skill `memory-setup`.
+- [x] **Framework y skills al método nuevo** (`VisionFramework`: `vision init`, `vision doctor`, skills de memoria; y su espejo en este repo). Commits locales, **sin publicar**.
+- [ ] **Publicar `VisionFramework`** y que cada repo actualice sus skills e instalador (`vision init`).
+- [ ] **Reescribir `EMPEZAR.md` y `ADOPCION.md`** del framework (hoy llevan solo un aviso; el túnel sigue vigente solo para LiteLLM `:4000` y Metrics `:4320`).
 - [ ] **Dar de alta a los demás devs.**
 - [ ] **Limpieza del método anterior:** túnel SSH y `visiontunnel`, Vaultwarden (`vault/`), `memory/setup/windows.ps1`, `memory/tunnel.sh`, variables `OMNIA_MEMORY_SSH_*`, `OMNIA_KNOWLEDGE_BASICAUTH_B64`, spec `self-service-memory-tunnel-onboarding`. Solo tras una ventana de convivencia.
 - [ ] Decidir si el gateway bloquea `delete_all_memories` y si limita namespaces por dev.
