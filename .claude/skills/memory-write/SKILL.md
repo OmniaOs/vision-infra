@@ -73,8 +73,9 @@ resolver a namespaces distintos:
 2. Namespace `project` → requiere `mcp__omnia-memory__add_memories`
    conectada en esta sesión.
 3. Si la que corresponde no está disponible → Caso Especial 4 para ese
-   hecho (probablemente falta correr `memory-setup` en este repo, o el
-   túnel SSH de `memory/tunnel.sh` no está corriendo). No inventes datos
+   hecho (probablemente falta correr `memory-setup` en este repo, falta
+   `OMNIA_MEMORY_TOKEN` en esta máquina, o el servidor se reinició y hay que
+   reiniciar Claude Code). No inventes datos
    ni asumas que se guardó.
 
 ### Paso 4 — Separar en hechos atómicos
@@ -184,8 +185,9 @@ documentado ahí, referencialo en vez de duplicarlo.
 ```markdown
 No pude guardar el hecho #<n>: la tool `mcp__omnia-memory<-global>__add_memories`
 no está conectada en esta sesión. Corré la skill `memory-setup` en este
-repo si nunca se configuró, o revisá que `memory/tunnel.sh` esté corriendo
-(`memory/RUNBOOK.md`, sección 1).
+repo si nunca se configuró, revisá que `OMNIA_MEMORY_TOKEN` esté definido
+(tu comando personal de alta, ver `memory/ARQUITECTURA.md`) y, si el servidor
+se reinició hace poco, reiniciá Claude Code.
 ```
 
 ### Caso Especial 5 — La lección pertenece a otro proyecto

@@ -45,7 +45,8 @@ Ejecuta los pasos en orden. No omitas pasos. No reordenes pasos.
    skill debe seguir sin memoria disponible.
 5. Si falta alguna → continúa con las que sí están, y agrega una nota
    breve en el output final mencionando cuál falta (probablemente ese repo
-   no corrió `memory-setup` todavía, o el túnel no está levantado).
+   no corrió `memory-setup` todavía, o falta `OMNIA_MEMORY_TOKEN`, o hay que
+   reiniciar Claude Code tras un redeploy del servidor).
 
 ### Paso 2 — Generar variantes de búsqueda
 
@@ -148,7 +149,8 @@ _(`basic-memory` no está conectada en esta sesión — no se consultó
 Ninguna fuente de memoria (`omnia-memory` / `omnia-memory-global` /
 `basic-memory`) está conectada en esta sesión. Si este repo nunca se
 configuró, corré la skill `memory-setup`. Si ya está configurado, revisá
-que `memory/tunnel.sh` esté corriendo (`memory/RUNBOOK.md`, sección 1).
+que `OMNIA_MEMORY_TOKEN` esté definido (`memory/ARQUITECTURA.md`) y reiniciá
+Claude Code si el servidor se reinició hace poco.
 
 Continuando sin contexto de memoria previa.
 ```

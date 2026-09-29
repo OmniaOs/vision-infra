@@ -1,20 +1,23 @@
 ---
 name: memory-setup
-description: 'Configura el .mcp.json de un repo para conectarlo a TODA la memoria compartida de Omnia en un solo paso: Mem0 (omnia-memory con slug hardcodeado + omnia-memory-global) y Basic Memory (basic-memory, el piloto de conocimiento largo en omnia-knowledge). Detecta alta nueva, retrofit de un bloque roto (${OMNIA_MEMORY_MCP_URL}), y git worktrees (heredan el slug del repo principal). No hace preguntas salvo conflicto de slug ya usado.'
+description: 'Configura el .mcp.json de un repo para conectarlo a TODA la memoria compartida de Omnia en un solo paso, por el gateway único (un token individual, OMNIA_MEMORY_TOKEN): Mem0 (omnia-memory con slug hardcodeado + omnia-memory-global) y Basic Memory (basic-memory). Detecta alta nueva, migración del método anterior (túnel localhost:8765, ${OMNIA_MEMORY_MCP_URL}, ${OMNIA_MEMORY_GLOBAL_MCP_URL}, BasicAuth de knowledge) y git worktrees (heredan el slug del repo principal). No hace preguntas salvo conflicto de slug ya usado.'
 ---
 
 # Memory Setup
 
 ## Propósito
 
-Automatiza `memory/RUNBOOK.md` secciones 2 ("Configurar un repo nuevo") y 3
-("Configurar un repo existente / retrofit") del repo `vision-infra`: conectar
-un repo al store de memoria compartida (Mem0 self-hosted) editando su
-`.mcp.json`. Sin esta skill, cada alta es un procedimiento manual con varias
-formas documentadas de salir mal (usar `${OMNIA_MEMORY_MCP_URL}` en vez del
-slug hardcodeado → dos repos abiertos a la vez compiten por el mismo
-namespace; confirmado roto así en `cfdi` y `omnia-client-portal` antes de
-que existiera esta skill).
+Conecta un repo a la memoria compartida editando su `.mcp.json`, con el método
+vigente descrito en `memory/ARQUITECTURA.md` (repo `vision-infra`): un solo
+gateway (`memory.omniaos.ai` para Mem0, `kb.omniaos.ai` para Basic Memory) y un
+token individual por persona en `OMNIA_MEMORY_TOKEN`. Sin esta skill, cada alta
+es un procedimiento manual con formas documentadas de salir mal (usar una
+variable en vez del slug hardcodeado → dos repos abiertos a la vez compiten por
+el mismo namespace; confirmado roto así en `cfdi` y `omnia-client-portal`).
+
+También **migra** los repos que todavía usan el método anterior (túnel SSH a
+`localhost:8765`, `${OMNIA_MEMORY_GLOBAL_MCP_URL}`, BasicAuth de
+`knowledge.omniaos.ai`) sin tocar el slug del proyecto.
 
 No escribe contenido en la memoria ni la consulta — solo cablea la
 conexión. Para eso ver `memory-write` y `memory-recall`.
@@ -23,9 +26,9 @@ Cablea las **tres** conexiones en una sola corrida (`omnia-memory`,
 `omnia-memory-global`, `basic-memory`) — antes eran pasos manuales
 separados, lo que significaba que cada repo nuevo requería acordarse de
 tres cosas en vez de correr una skill. `basic-memory` no tiene namespace
-por repo (es un solo server con "proyectos" internos, ver
-`omnia-knowledge/README.md`), así que su bloque es el mismo en cualquier
-repo — no necesita el Paso 3 (slug) para nada.
+por repo (es un solo server con un proyecto `projects` y los clientes como
+carpetas, ver `omnia-knowledge/deploy/DEPLOY.md`), así que su bloque es el
+mismo en cualquier repo — no necesita el Paso 3 (slug) para nada.
 
 ## Entrada
 
@@ -46,7 +49,8 @@ Ejecuta los pasos en orden. No omitas pasos. No reordenes pasos.
 2. Si **no** está → no bloquees; registra la advertencia del Caso Especial
    3 para incluirla en el reporte final. El `.mcp.json` que vas a escribir
    es correcto igual: usa `${OMNIA_MEMORY_TOKEN}`, que cada máquina resuelve
-   por su cuenta una vez complete `memory/RUNBOOK.md` sección 1.
+   por su cuenta una vez pegue su comando personal de alta (ver
+   `memory/ARQUITECTURA.md`, "Workflow del dev").
 
 ### Paso 2 — Detectar si `projectRoot` es un git worktree
 
@@ -89,8 +93,15 @@ Ejecuta los pasos en orden. No omitas pasos. No reordenes pasos.
 4. Si existe `mcpServers.omnia-memory.url`:
    - Si su valor es literalmente `${OMNIA_MEMORY_MCP_URL}` → `caso =
      "retrofit"`.
-   - Si matchea `^http://localhost:8765/mcp/claude/sse/(.+)$`:
-     - Si el slug capturado === `slug` (Paso 3) → `caso = "ya-ok"`.
+   - Si matchea `^https://memory\.omniaos\.ai/mcp/claude/sse/(.+)$` (método
+     vigente):
+     - Si el slug capturado === `slug` (Paso 3) → `caso = "ya-ok"` (aun así
+       revisa los otros dos bloques en el Paso 5).
+     - Si es distinto → Caso Especial 2, sin escribir nada.
+   - Si matchea `^http://localhost:8765/mcp/claude/sse/(.+)$` (método anterior,
+     túnel SSH):
+     - Si el slug capturado === `slug` → `caso = "migrar"`: se reemplaza solo
+       el dominio por `https://memory.omniaos.ai`, conservando el slug.
      - Si es distinto → devuelve el output del Caso Especial 2 y **termina
        sin escribir nada** — no pises un namespace que otro proceso podría
        estar usando a propósito con un nombre distinto al inferido.
@@ -98,54 +109,48 @@ Ejecuta los pasos en orden. No omitas pasos. No reordenes pasos.
      "slug distinto" de arriba (Caso Especial 2): no lo toques sin
      confirmación explícita.
 
-### Paso 5 — Aplicar (`alta-nueva`, `agregar-a-existente`, `retrofit`)
+### Paso 5 — Aplicar (`alta-nueva`, `agregar-a-existente`, `retrofit`, `migrar`)
 
 1. Bloque objetivo para `mcpServers.omnia-memory`:
    ```json
    {
      "type": "sse",
-     "url": "http://localhost:8765/mcp/claude/sse/<slug>",
+     "url": "https://memory.omniaos.ai/mcp/claude/sse/<slug>",
      "headers": { "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}" }
    }
    ```
-2. Bloque objetivo para `mcpServers.omnia-memory-global` (solo si la clave
-   no existe todavía o si existe con el mismo valor esperado):
+2. Bloque objetivo para `mcpServers.omnia-memory-global` (si la clave no
+   existe, o si existe con un valor del método anterior):
    ```json
    {
      "type": "sse",
-     "url": "${OMNIA_MEMORY_GLOBAL_MCP_URL}",
+     "url": "https://memory.omniaos.ai/mcp/claude/sse/omnia-global",
      "headers": { "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}" }
    }
    ```
-   Si `mcpServers.omnia-memory-global` ya existe con un `url` **distinto**
-   de `${OMNIA_MEMORY_GLOBAL_MCP_URL}` → no lo toques (personalización
+   Se **reemplaza** sin preguntar si su `url` es exactamente
+   `${OMNIA_MEMORY_GLOBAL_MCP_URL}` o
+   `http://localhost:8765/mcp/claude/sse/omnia-global` (método anterior). Si
+   existe con cualquier **otro** `url` → no lo toques (personalización
    explícita de alguien); agrega la advertencia del Caso Especial 4 al
    reporte.
-3. Bloque objetivo para `mcpServers.basic-memory` (piloto `omnia-knowledge`
-   — ver ese repo, `deploy/DEPLOY.md`; sin `slug`. Basic Memory no tiene
-   auth propia — el acceso real es `knowledge.omniaos.ai` detrás de un
-   dominio Traefik + BasicAuth, no un túnel SSH a un puerto local; se
-   descartó esa opción por requerir un segundo túnel a otra VPS, más
-   fricción que un dominio):
+3. Bloque objetivo para `mcpServers.basic-memory` (sin `slug`; ver
+   `omnia-knowledge/deploy/DEPLOY.md`). Basic Memory no tiene auth propia:
+   el gateway `kb.omniaos.ai` valida el mismo token individual y pone del
+   lado servidor la credencial real, así que **el dev ya no maneja ninguna
+   contraseña de knowledge**:
    ```json
    {
      "type": "sse",
-     "url": "https://knowledge.omniaos.ai/mcp",
-     "headers": { "Authorization": "Basic ${OMNIA_KNOWLEDGE_BASICAUTH_B64}" }
+     "url": "https://kb.omniaos.ai/mcp",
+     "headers": { "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}" }
    }
    ```
-   **Credenciales por header, no embebidas en la URL** — confirmado en
-   vivo que `usuario:contraseña@host` rompe si la contraseña tiene
-   caracteres reservados de URL (`?`, `@`, `/`, etc.) sin percent-encodear,
-   y no todos los clientes MCP decodean el userinfo de la URL de forma
-   consistente antes de armar el header Basic. Un header evita esa clase
-   entera de bug. `OMNIA_KNOWLEDGE_BASICAUTH_B64` es una variable de
-   entorno de máquina — el `base64` de `usuario:contraseña`, no la
-   contraseña ni el hash — igual de "una vez por máquina" que
-   `OMNIA_MEMORY_TOKEN`, no algo que este bloque resuelva.
-   Mismas reglas de no-pisar que `omnia-memory-global`: si
-   `mcpServers.basic-memory` ya existe con un `url` distinto, no lo
-   toques, agrega la advertencia del Caso Especial 5.
+   Se **reemplaza** sin preguntar si su `url` es
+   `https://knowledge.omniaos.ai/mcp` (método anterior, con
+   `Basic ${OMNIA_KNOWLEDGE_BASICAUTH_B64}`; esa variable queda obsoleta). Si
+   existe con cualquier **otro** `url`, no lo toques y agrega la advertencia
+   del Caso Especial 5.
 4. Si el archivo no existía (`alta-nueva` sin archivo previo): créalo con
    `{ "mcpServers": { ...bloques del Paso 5.1/5.2/5.3 } }`.
 5. Si existía: fusiona los bloques dentro de `mcpServers` **preservando
@@ -171,16 +176,16 @@ skill (usuario o workflow) es intencional — algunos repos gitignoran
 ### memory-setup — <nombre de carpeta de projectRoot>
 
 - Slug resuelto (`omnia-memory`): `<slug>`<si fue worktree: " (heredado de <repo principal>, es un git worktree)">
-- `omnia-memory`: <"archivo creado" | "bloque agregado" | "URL rota reemplazada (retrofit)" | "ya estaba, sin cambios">
-- `omnia-memory-global`: <"agregado" | "ya estaba, sin cambios" | "personalizado, no tocado">
-- `basic-memory`: <"agregado" | "ya estaba, sin cambios" | "personalizado, no tocado">
+- `omnia-memory`: <"archivo creado" | "bloque agregado" | "URL rota reemplazada (retrofit)" | "migrado del túnel al gateway" | "ya estaba, sin cambios">
+- `omnia-memory-global`: <"agregado" | "migrado" | "ya estaba, sin cambios" | "personalizado, no tocado">
+- `basic-memory`: <"agregado" | "migrado" | "ya estaba, sin cambios" | "personalizado, no tocado">
 - Archivo: `<path>/.mcp.json`
 <advertencias, una por línea, si las hay>
 
 <Si OMNIA_MEMORY_TOKEN no estaba en el entorno:>
 ⚠️ No encuentro `OMNIA_MEMORY_TOKEN` en el entorno de esta sesión. El
 `.mcp.json` quedó bien escrito, pero no va a conectar hasta que esta
-máquina complete `memory/RUNBOOK.md` sección 1 (alta de dev).
+máquina pegue su comando personal de alta (ver `memory/ARQUITECTURA.md`).
 ```
 
 Para una corrida sobre varios repos a la vez, agrega estas líneas por cada
@@ -219,14 +224,15 @@ caso que detenga la skill, solo se agrega como nota.
 
 ```markdown
 ⚠️ `omnia-memory-global` en este repo ya tenía una URL distinta a la
-universal (`${OMNIA_MEMORY_GLOBAL_MCP_URL}`). La dejé como estaba.
+universal (`https://memory.omniaos.ai/mcp/claude/sse/omnia-global`) y no era
+una del método anterior. La dejé como estaba.
 ```
 
 ### Caso Especial 5 — `basic-memory` personalizado
 
 ```markdown
 ⚠️ `basic-memory` en este repo ya tenía una URL distinta a
-`https://knowledge.omniaos.ai/mcp`. La dejé como estaba.
+`https://kb.omniaos.ai/mcp` y no era la del método anterior. La dejé como estaba.
 ```
 
 ## Reglas Clave

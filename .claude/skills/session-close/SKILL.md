@@ -65,9 +65,11 @@ decisión de arquitectura con su razonamiento, la ficha de una
 implementación de cliente? Eso se lee mejor como documento que como
 oración suelta.
 
-Si sí → escribí la nota en `omnia-knowledge/projects/<proyecto-o-cliente>/`
-con el frontmatter y formato de `CONVENTIONS.md` (`Observations`,
-`Relations`). Si el proyecto/cliente no tiene carpeta todavía, creála.
+Si sí → escribí la nota con `write_note` de `basic-memory` en el proyecto
+`projects`, dentro de la carpeta del cliente (`directory="<cliente>/..."`, por
+ejemplo `frutal/incidentes`), con el formato de `CONVENTIONS.md`
+(`Observations`, `Relations`). Basic Memory tiene un solo proyecto y los
+clientes son carpetas; si el cliente no tiene carpeta todavía, se crea sola.
 
 Si no (el hallazgo es una lección corta, ya cubierta por el Paso 1) → no
 crees una nota — no dupliques el mismo hecho en las dos capas sin motivo.
@@ -129,9 +131,10 @@ lo define — `session-close` no lo oculta ni lo reintenta por su cuenta.
 
 ```markdown
 - Nota (omnia-knowledge): no se pudo escribir — el MCP `basic-memory` no
-  está conectado en esta sesión. Si el repo debería tenerlo (piloto ya
-  desplegado), revisá `.mcp.json`; si el piloto todavía no está
-  desplegado en el VPS, es esperado — ver `omnia-knowledge/deploy/DEPLOY.md`.
+  está conectado en esta sesión. Revisá que el `.mcp.json` tenga el bloque
+  `basic-memory` (`memory-setup`), que `OMNIA_MEMORY_TOKEN` esté definido y, si
+  el servidor se reinició hace poco, reiniciá Claude Code: el cliente MCP no
+  se reconecta solo.
 ```
 
 ## Reglas Clave
