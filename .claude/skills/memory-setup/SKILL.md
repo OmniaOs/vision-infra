@@ -122,15 +122,21 @@ Ejecuta los pasos en orden. No omitas pasos. No reordenes pasos.
    explícita de alguien); agrega la advertencia del Caso Especial 4 al
    reporte.
 3. Bloque objetivo para `mcpServers.basic-memory` (piloto `omnia-knowledge`
-   — ver ese repo, `deploy/DEPLOY.md`; sin `slug`, sin `Authorization`
-   header, porque Basic Memory no tiene auth propia y el túnel SSH es el
-   único control de acceso):
+   — ver ese repo, `deploy/DEPLOY.md`; sin `slug`, con las credenciales
+   embebidas en la URL en vez de un header, porque Basic Memory no tiene
+   auth propia — el acceso real es `knowledge.omniaos.ai` detrás de un
+   dominio Traefik + BasicAuth, no un túnel SSH a un puerto local; se
+   descartó esa opción por requerir un segundo túnel a otra VPS, más
+   fricción que un dominio):
    ```json
    {
      "type": "sse",
-     "url": "http://localhost:8420/mcp"
+     "url": "https://${OMNIA_KNOWLEDGE_BASICAUTH}@knowledge.omniaos.ai/mcp"
    }
    ```
+   `OMNIA_KNOWLEDGE_BASICAUTH` es una variable de entorno de máquina
+   (formato `usuario:contraseña`, sin encodear), igual de "de una vez por
+   máquina" que `OMNIA_MEMORY_TOKEN` — no algo que este bloque resuelva.
    Mismas reglas de no-pisar que `omnia-memory-global`: si
    `mcpServers.basic-memory` ya existe con un `url` distinto, no lo
    toques, agrega la advertencia del Caso Especial 5.
@@ -214,7 +220,8 @@ universal (`${OMNIA_MEMORY_GLOBAL_MCP_URL}`). La dejé como estaba.
 
 ```markdown
 ⚠️ `basic-memory` en este repo ya tenía una URL distinta a
-`http://localhost:8420/mcp`. La dejé como estaba.
+`https://${OMNIA_KNOWLEDGE_BASICAUTH}@knowledge.omniaos.ai/mcp`. La dejé
+como estaba.
 ```
 
 ## Reglas Clave
