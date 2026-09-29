@@ -4,6 +4,9 @@ Capa de memoria **compartida** del equipo + self-learning. Este repo es el
 recurso de Coolify que hostea la memoria en el VPS. Deploy: ver
 [`DEPLOY_COOLIFY.md`](../DEPLOY_COOLIFY.md) en la raíz del repo.
 
+> **Empieza aquí:** [`MANUAL-DEV.md`](MANUAL-DEV.md) (dev), [`MANUAL-ADMIN.md`](MANUAL-ADMIN.md) (admin)
+> y [`WORKFLOW.md`](WORKFLOW.md) (cuándo usar cada skill).
+>
 > **Arquitectura y workflow vigentes: [`ARQUITECTURA.md`](ARQUITECTURA.md)**
 > (un token por persona, dos memorias, un solo comando). Lo de abajo es detalle
 > de componentes o historia del método anterior (túnel SSH + Vaultwarden), que

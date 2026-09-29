@@ -129,6 +129,9 @@ del repo; escritura → `sync` → GitHub; el proyecto sobrevive a un redeploy.
 
 | Archivo | Para qué |
 |---|---|
+| [`MANUAL-DEV.md`](MANUAL-DEV.md) | Manual del dev: alta, conectar un repo, verificar y qué hacer si falla. |
+| [`MANUAL-ADMIN.md`](MANUAL-ADMIN.md) | Manual del admin: altas, bajas, rotaciones, despliegues y sanidad. |
+| [`WORKFLOW.md`](WORKFLOW.md) | Cuándo usar cada skill o comando; rutina inicial y diaria. |
 | [`access/README.md`](access/README.md) | Operación del gateway: alta, baja, despliegue, verificación. |
 | [`access/server.mjs`](access/server.mjs), [`server.test.mjs`](access/server.test.mjs) | Código y pruebas (`node --test memory/access`). |
 | [`access/devs.mjs`](access/devs.mjs) | CLI de alta. |
