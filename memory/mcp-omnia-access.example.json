@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "omnia-memory": {
+      "type": "sse",
+      "url": "https://memory.omniaos.ai/mcp/claude/sse/<slug-del-proyecto>",
+      "headers": { "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}" }
+    },
+    "omnia-memory-global": {
+      "type": "sse",
+      "url": "https://memory.omniaos.ai/mcp/claude/sse/omnia-global",
+      "headers": { "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}" }
+    },
+    "basic-memory": {
+      "type": "sse",
+      "url": "https://kb.omniaos.ai/mcp",
+      "headers": { "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}" }
+    }
+  }
+}

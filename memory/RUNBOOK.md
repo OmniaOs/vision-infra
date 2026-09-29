@@ -1,5 +1,11 @@
 # Runbook — memoria compartida del equipo
 
+> **Método nuevo (un token, dos rutas):** [`access/README.md`](access/README.md).
+> Reemplaza el túnel SSH + Vaultwarden + variable de Basic Auth por un solo comando
+> por dev. Este documento describe el método anterior y sigue vigente **hasta que
+> `access` esté desplegado y los repos migren su `.mcp.json`**
+> ([`mcp-omnia-access.example.json`](mcp-omnia-access.example.json)).
+
 Tres procedimientos distintos. Si tenés dudas sobre el diseño general (qué
 es cada pieza, por qué existe Vaultwarden, qué escribir en la memoria), ver
 primero [`INSTRUCTIVO.md`](INSTRUCTIVO.md), [`../vault/README.md`](../vault/README.md)

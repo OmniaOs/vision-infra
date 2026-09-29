@@ -63,6 +63,30 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
 
+  # Puerta unica de acceso para los devs (ver access/README.md). Es lo UNICO del
+  # stack que se expone por dominio; openmemory-mcp sigue en loopback y solo
+  # este servicio lo alcanza por la red interna. Auth por token individual
+  # (hash en ACCESS_DEVS); reenvia solo /mcp/* de Mem0 e inyecta del lado
+  # servidor las credenciales reales de cada backend.
+  # Coolify -> Domains del servicio `access`:
+  #   https://memory.omniaos.ai:8080,https://kb.omniaos.ai:8080  (con esquema)
+  access:
+    build: ./access
+    image: omnia/memory-access:latest
+    restart: unless-stopped
+    environment:
+      - ACCESS_DEVS=${ACCESS_DEVS}
+      - MEM0_UPSTREAM=http://openmemory-mcp:8765
+      - OPENMEMORY_API_KEY=${OPENMEMORY_API_KEY}
+      # Basic Memory vive en otro VPS: se alcanza por su dominio de origen con
+      # la credencial de servicio que ya tiene (base64 de usuario:clave).
+      - KB_UPSTREAM=${KB_UPSTREAM:-https://knowledge.omniaos.ai}
+      - KB_UPSTREAM_AUTH_B64=${KB_UPSTREAM_AUTH_B64}
+    depends_on:
+      - openmemory-mcp
+    expose:
+      - "8080"
+
   hermes:
     build: ./hermes
     image: omnia/hermes:latest

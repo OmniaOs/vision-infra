@@ -1,5 +1,11 @@
 # 🧠 Memoria compartida del equipo (Omnia)
 
+> **Método nuevo (un token, dos rutas):** [`access/README.md`](access/README.md).
+> Reemplaza el túnel SSH + Vaultwarden + variable de Basic Auth por un solo comando
+> por dev. Este documento describe el método anterior y sigue vigente **hasta que
+> `access` esté desplegado y los repos migren su `.mcp.json`**
+> ([`mcp-omnia-access.example.json`](mcp-omnia-access.example.json)).
+
 Este módulo conecta tu IDE a la **memoria compartida del equipo**: un único store
 hosteado (Mem0 self-hosted, multi-user) donde los agentes recuerdan decisiones,
 contexto y lecciones **entre repos, devs y sesiones**. No es memoria local por
