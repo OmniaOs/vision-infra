@@ -2,23 +2,23 @@
   "mcpServers": {
     "omnia-memory": {
       "type": "sse",
-      "url": "http://localhost:8765/mcp/claude/sse/vision-infra",
+      "url": "https://memory.omniaos.ai/mcp/claude/sse/vision-infra",
       "headers": {
         "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}"
       }
     },
     "omnia-memory-global": {
       "type": "sse",
-      "url": "${OMNIA_MEMORY_GLOBAL_MCP_URL}",
+      "url": "https://memory.omniaos.ai/mcp/claude/sse/omnia-global",
       "headers": {
         "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}"
       }
     },
     "basic-memory": {
       "type": "sse",
-      "url": "https://knowledge.omniaos.ai/mcp",
+      "url": "https://kb.omniaos.ai/mcp",
       "headers": {
-        "Authorization": "Basic ${OMNIA_KNOWLEDGE_BASICAUTH_B64}"
+        "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}"
       }
     }
   }
