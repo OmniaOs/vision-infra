@@ -122,8 +122,7 @@ Ejecuta los pasos en orden. No omitas pasos. No reordenes pasos.
    explícita de alguien); agrega la advertencia del Caso Especial 4 al
    reporte.
 3. Bloque objetivo para `mcpServers.basic-memory` (piloto `omnia-knowledge`
-   — ver ese repo, `deploy/DEPLOY.md`; sin `slug`, con las credenciales
-   embebidas en la URL en vez de un header, porque Basic Memory no tiene
+   — ver ese repo, `deploy/DEPLOY.md`; sin `slug`. Basic Memory no tiene
    auth propia — el acceso real es `knowledge.omniaos.ai` detrás de un
    dominio Traefik + BasicAuth, no un túnel SSH a un puerto local; se
    descartó esa opción por requerir un segundo túnel a otra VPS, más
@@ -131,12 +130,19 @@ Ejecuta los pasos en orden. No omitas pasos. No reordenes pasos.
    ```json
    {
      "type": "sse",
-     "url": "https://${OMNIA_KNOWLEDGE_BASICAUTH}@knowledge.omniaos.ai/mcp"
+     "url": "https://knowledge.omniaos.ai/mcp",
+     "headers": { "Authorization": "Basic ${OMNIA_KNOWLEDGE_BASICAUTH_B64}" }
    }
    ```
-   `OMNIA_KNOWLEDGE_BASICAUTH` es una variable de entorno de máquina
-   (formato `usuario:contraseña`, sin encodear), igual de "de una vez por
-   máquina" que `OMNIA_MEMORY_TOKEN` — no algo que este bloque resuelva.
+   **Credenciales por header, no embebidas en la URL** — confirmado en
+   vivo que `usuario:contraseña@host` rompe si la contraseña tiene
+   caracteres reservados de URL (`?`, `@`, `/`, etc.) sin percent-encodear,
+   y no todos los clientes MCP decodean el userinfo de la URL de forma
+   consistente antes de armar el header Basic. Un header evita esa clase
+   entera de bug. `OMNIA_KNOWLEDGE_BASICAUTH_B64` es una variable de
+   entorno de máquina — el `base64` de `usuario:contraseña`, no la
+   contraseña ni el hash — igual de "una vez por máquina" que
+   `OMNIA_MEMORY_TOKEN`, no algo que este bloque resuelva.
    Mismas reglas de no-pisar que `omnia-memory-global`: si
    `mcpServers.basic-memory` ya existe con un `url` distinto, no lo
    toques, agrega la advertencia del Caso Especial 5.
@@ -220,8 +226,7 @@ universal (`${OMNIA_MEMORY_GLOBAL_MCP_URL}`). La dejé como estaba.
 
 ```markdown
 ⚠️ `basic-memory` en este repo ya tenía una URL distinta a
-`https://${OMNIA_KNOWLEDGE_BASICAUTH}@knowledge.omniaos.ai/mcp`. La dejé
-como estaba.
+`https://knowledge.omniaos.ai/mcp`. La dejé como estaba.
 ```
 
 ## Reglas Clave

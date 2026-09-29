@@ -16,7 +16,10 @@
     },
     "basic-memory": {
       "type": "sse",
-      "url": "https://${OMNIA_KNOWLEDGE_BASICAUTH}@knowledge.omniaos.ai/mcp"
+      "url": "https://knowledge.omniaos.ai/mcp",
+      "headers": {
+        "Authorization": "Basic ${OMNIA_KNOWLEDGE_BASICAUTH_B64}"
+      }
     }
   }
 }
