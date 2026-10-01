@@ -64,7 +64,7 @@ const publicUser = (u, auth, tokens = []) => {
 };
 
 export function createPanelApi({
-  store, auth, closeSessions, log = () => {}, memoryDomain = 'memory.omniaos.ai', panelDomain = 'memorypanel.omniaos.ai',
+  store, auth, closeSessions, viewer, log = () => {}, memoryDomain = 'memory.omniaos.ai', panelDomain = 'memorypanel.omniaos.ai',
 }) {
   const newToken = () => `omnia_${randomBytes(32).toString('base64url')}`;
   const commands = (token) => ({
@@ -187,6 +187,8 @@ export function createPanelApi({
         const [status, body] = revokeTokenById(tid, actor.id);
         return send(status, body);
       }
+
+      if (viewer && (await viewer.handle(req, res, url, actor))) return;
 
       if (!p.startsWith('/api/admin/')) return send(404, { error: 'not_found' });
       if (actor.role !== 'admin') { audit('denegado', p); return send(403, { error: 'forbidden', reason: 'solo_admin' }); }
