@@ -25,6 +25,29 @@ Claude Code / IDE ──HTTPS + Bearer <token del dev>──▶ access (este ser
 - Cada pedido se registra con el id del dev (nunca el token ni el query string),
   y el backend recibe `x-omnia-dev` para atribución.
 
+## Roles y espacios (construido, en modo auditoría)
+
+El gateway decide, para cada token, a qué espacios entra y qué herramientas usa. Reglas completas,
+nombres y verificación en [`../PERMISOS.md`](../PERMISOS.md). Código: `policy.mjs` (reglas), `users.mjs` (usuarios).
+
+- **Alta con rol y espacios:** `node memory/access/devs.mjs add ana --role miembro --spaces int-frutal,proy-omniapos`
+  imprime la línea `ana:<hash>:miembro:int-frutal+proy-omniapos` para `ACCESS_DEVS`. Sin `--role` sigue el formato antiguo.
+- **Admin de emergencia:** `ACCESS_ADMINS` (`id:hash`) es siempre `admin` y nunca se edita desde el panel. Antes de
+  activar el bloqueo, **tu propio token debe estar ahí** o en `ACCESS_DEVS` con rol `admin`.
+- **`ACCESS_ENFORCE` vacío = auditoría:** nada se bloquea, pero cada pedido que se denegaría queda en el log con
+  `pol: "would_deny:<motivo>"`. Con `ACCESS_ENFORCE=1` se bloquea con 403 y `pol: "deny:<motivo>"`.
+- Un token con el formato antiguo (`id:hash`) es `miembro` sin espacios asignados: solo ve `global`. En auditoría no
+  afecta, pero **antes de activar el bloqueo hay que asignarle espacios**.
+- Cada pedido a Basic Memory se valida por lista blanca: herramientas conocidas, `project` obligatorio y válido,
+  sin `project_id`, `workspace` ni `search_all_projects`, y cualquier `memory://` debe apuntar al mismo proyecto.
+- Un límite de 1200 pedidos por minuto por persona y de 256 KB por mensaje.
+
+Revisar la auditoría en los logs del servicio `access`:
+
+```bash
+docker logs <contenedor-access> 2>&1 | grep would_deny | head
+```
+
 ## Dar de alta a un dev (admin, ~1 minuto)
 
 ```bash
@@ -86,5 +109,5 @@ token es global de la máquina; el slug va en el `.mcp.json` de cada repo.
 ## Desarrollo
 
 ```bash
-node --test memory/access        # 7 pruebas: auth, allowlist, inyección de credenciales, SSE, revocación
+node --test memory/access        # 33 pruebas: auth, allowlist, credenciales, SSE, roles, espacios, fugas, auditoría
 ```

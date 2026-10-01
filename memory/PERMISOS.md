@@ -1,6 +1,6 @@
 # Permisos y separación de espacios (diseño, pendiente de implementar)
 
-> **Estado: propuesta del 2026-10-01, aprobada en sus decisiones de fondo, sin construir.**
+> **Estado: propuesta del 2026-10-01, aprobada en sus decisiones de fondo; verificada contra el código y los servicios reales el mismo día. En construcción.**
 > Hoy la separación es solo por convención: cualquier token puede leer y escribir cualquier
 > namespace de Mem0 y cualquier carpeta de Basic Memory, y todos tienen `delete_all_memories`.
 > Este documento fija **los nombres y las reglas antes de la carga masiva**, porque Mem0 no
@@ -44,6 +44,34 @@ Reglas de nombre: minúsculas, dígitos y `-`; prefijo obligatorio (`proy-`, `in
 Un repo que es parte de un cliente (por ejemplo `frutal-hr`, `weritas-erpnext`) usa `int-<cliente>`,
 no un namespace propio.
 
+## Verificado el 2026-10-01 (contra la imagen de Mem0 y el Basic Memory desplegado)
+
+**Mem0 (OpenMemory)**
+- El aislamiento por namespace es **real**: las búsquedas filtran por `user_id` tanto en la base de datos como en Qdrant.
+- El namespace se fija **solo al abrir la conexión SSE** (`GET /mcp/<cliente>/sse/<namespace>`). Los mensajes siguientes (`POST /mcp/messages/?session_id=...`) **no lo repiten**: el gateway debe asociar cada `session_id` a su namespace al abrir la conexión.
+- `delete_all_memories` borra solo los recuerdos **del namespace de esa conexión**, no todo Mem0.
+- Cada recuerdo recibe **categorías** asignadas por el propio OpenMemory, y existe un endpoint de recuerdos relacionados. El grafo puede usar relaciones reales, sin agrupaciones inventadas.
+- La API REST (`/api/v1/memories/?user_id=...`) **no pide credenciales**: solo debe usarla el gateway por la red interna.
+
+**Basic Memory** (21 herramientas)
+- Siete herramientas **no llevan parámetro de proyecto** (`search`, `fetch`, `list_memory_projects`, `list_workspaces`, `create_memory_project`, `delete_project`, `basic_memory_diagnostics`) y las demás aceptan `project` **o** `project_id`.
+- **Cuatro fugas comprobadas:** omitir `project` con una URL `memory://<otro-proyecto>/...` lee el otro proyecto; `build_context` hace lo mismo; `search_notes` con `search_all_projects` busca en todos; `project_id` de otro proyecto lista su contenido.
+- Consecuencia: el filtro del gateway será **de lista blanca**: solo herramientas conocidas, `project` obligatorio y válido, prohibido `project_id`, `workspace` y `search_all_projects`, y cualquier texto `memory://` debe apuntar al mismo proyecto. Aun así es un filtro: por eso los clientes van en instancias separadas.
+
+## Despliegue por etapas (para no romper a quien ya usa la memoria)
+
+1. **Modo auditoría** (`ACCESS_ENFORCE` apagado): el gateway evalúa todo y **registra** lo que denegaría, sin bloquear nada.
+2. Migrar los namespaces y proyectos existentes a los nombres nuevos y asignar espacios a cada persona.
+3. **Activar el bloqueo** (`ACCESS_ENFORCE=1`) cuando el registro de auditoría salga limpio.
+
+Los repos hoy usan nombres antiguos (`frutal`, `omniapos`, `weritas`...). Activar el bloqueo antes de migrar los dejaría sin memoria.
+
+## Qué sigue sin resolverse (no lo doy por hecho)
+
+- **Respaldos de Mem0:** no hay copia automática; vive en volúmenes del servidor.
+- **Cliente que escribe:** el equipo lee lo que él escribe; sin filtro de contenido.
+- Los cortes de sesión por un **redeploy del código** del gateway seguirán existiendo: el panel elimina los reinicios por altas y bajas, no los de código.
+
 ## Roles
 
 | Rol | Puede | No puede |
@@ -67,6 +95,17 @@ Un token = una persona = un rol + una lista de espacios. Ejemplo de entrada futu
   por eso no se usa para clientes.
 - **Basic Memory, cliente:** una instancia por cliente (servicio, volumen y repo propios). El token de
   cliente solo enruta a su instancia; no existe ruta física hacia lo interno.
+
+## Avance (2026-10-01)
+
+| Paso | Estado |
+|---|---|
+| 1. Motor de roles y espacios en el gateway, con pruebas | **Construido y probado (33 pruebas); sin desplegar.** Incluye las cuatro fugas, sesiones por namespace, auditoría, cierre de sesiones, límite de peticiones y almacén de usuarios con archivo |
+| 2. Panel de altas y bajas (escribe el archivo de usuarios) | Pendiente |
+| 3. Visor de notas y grafo | Pendiente |
+| 4. Reorganizar Basic Memory (un proyecto por espacio) y migrar nombres | Pendiente |
+| 5. Instancias de cliente de Basic Memory | Pendiente |
+| 6. Activar el bloqueo y cargar | Pendiente |
 
 ## Orden de construcción
 

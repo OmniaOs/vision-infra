@@ -100,7 +100,7 @@ test('SSE: el primer evento llega antes de que el backend termine', async () => 
 
 test('/whoami identifica al dev; /healthz no pide token; host desconocido da 404', async () => {
   const w = await call('kb.test', '/whoami', { token: TOKEN });
-  assert.deepEqual(JSON.parse(w.data), { dev: 'ana', route: 'knowledge' });
+  assert.deepEqual(JSON.parse(w.data), { dev: 'ana', route: 'knowledge', role: 'admin' });
   assert.equal((await call('mem.test', '/healthz')).status, 200);
   assert.equal((await call('otro.test', '/mcp/x', { token: TOKEN })).status, 404);
 });

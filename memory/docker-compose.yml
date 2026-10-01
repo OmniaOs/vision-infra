@@ -76,6 +76,11 @@ services:
     restart: unless-stopped
     environment:
       - ACCESS_DEVS=${ACCESS_DEVS}
+      # Admin de emergencia ("id:hash", siempre rol admin, no se edita desde el panel).
+      - ACCESS_ADMINS=${ACCESS_ADMINS:-}
+      # Vacio = AUDITORIA: se registra lo que las politicas denegarian, sin bloquear.
+      # Poner 1 solo cuando el registro salga limpio (ver memory/PERMISOS.md).
+      - ACCESS_ENFORCE=${ACCESS_ENFORCE:-}
       - MEM0_UPSTREAM=http://openmemory-mcp:8765
       - OPENMEMORY_API_KEY=${OPENMEMORY_API_KEY}
       # Basic Memory vive en otro VPS: se alcanza por su dominio de origen con

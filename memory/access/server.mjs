@@ -1,20 +1,25 @@
 // Omnia memory access gateway.
 //
-// Una sola puerta, un token por dev, para las dos memorias:
+// Una sola puerta, un token por persona, para las dos memorias:
 //   memory.<dominio>  ->  Mem0 / OpenMemory (solo /mcp/*)
 //   kb.<dominio>      ->  Basic Memory (omnia-knowledge)
 //
 // El dev manda `Authorization: Bearer <su token>`. El gateway lo valida contra
-// hashes SHA-256 (ACCESS_DEVS), descarta ese header y pone el del backend, asi
-// el dev nunca ve las credenciales reales de Mem0 ni de Basic Memory. Sin
-// dependencias: solo modulos nativos de Node.
+// hashes SHA-256, descarta ese header y pone el del backend. Ademas aplica
+// roles y espacios (policy.mjs): conexion a un namespace, herramientas y
+// argumentos de cada mensaje MCP. Con ACCESS_ENFORCE apagado solo AUDITA:
+// registra lo que denegaria sin bloquearlo (despliegue por etapas, ver
+// memory/PERMISOS.md). Sin dependencias: solo modulos nativos de Node.
 
 import http from 'node:http';
 import https from 'node:https';
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { createStore, storeFromLegacy, hashToken } from './users.mjs';
+import { checkKbRpc, checkMem0Connect, checkMem0Rpc, parseRpc, spaceFromMem0 } from './policy.mjs';
+
+export { hashToken };
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -23,14 +28,13 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DROP = new Set([
   'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
   'te', 'trailer', 'transfer-encoding', 'upgrade', 'host', 'authorization',
-  'x-omnia-dev',
+  'x-omnia-dev', 'x-omnia-role',
 ]);
 
+const BODY_LIMIT = 256 * 1024;
 const DEV_LINE = /^[a-z0-9][a-z0-9._-]{0,31}:[0-9a-f]{64}$/;
 
-export const hashToken = (token) => createHash('sha256').update(token).digest('hex');
-
-/** "ana:<sha256>,luis:<sha256>" (coma o salto de linea) -> Map(hash -> dev). */
+/** "ana:<sha256>,luis:<sha256>" -> Map(hash -> dev). Formato antiguo, se conserva por compatibilidad. */
 export function parseDevs(text) {
   const devs = new Map();
   for (const raw of String(text || '').split(/[\n,]+/)) {
@@ -45,10 +49,56 @@ export function parseDevs(text) {
   return devs;
 }
 
-export function createGateway({ devs, routes, setupDir = path.join(HERE, 'setup'), log = () => {} }) {
-  const setupFiles = { '/setup': 'connect.ps1', '/setup.sh': 'connect.sh' };
+function readBody(req, limit = BODY_LIMIT) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let n = 0;
+    req.on('data', (c) => {
+      n += c.length;
+      if (n > limit) { reject(Object.assign(new Error('too_large'), { code: 'too_large' })); req.pause(); }
+      else chunks.push(c);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
 
-  return http.createServer((req, res) => {
+export function createGateway({
+  devs, store, routes, enforce = false, rateLimitPerMin = 1200,
+  setupDir = path.join(HERE, 'setup'), log = () => {},
+}) {
+  const users = store || storeFromLegacy(devs || new Map());
+  const setupFiles = { '/setup': 'connect.ps1', '/setup.sh': 'connect.sh' };
+  /** session_id -> { dev, kind, space, res } */
+  const sessions = new Map();
+  const hits = new Map(); // dev -> { windowStart, n }
+
+  function rateOk(dev) {
+    const now = Date.now();
+    const h = hits.get(dev);
+    if (!h || now - h.windowStart >= 60000) { hits.set(dev, { windowStart: now, n: 1 }); return true; }
+    return ++h.n <= rateLimitPerMin;
+  }
+
+  function closeSessions(devId) {
+    let n = 0;
+    for (const [sid, s] of sessions) if (s.dev === devId) { s.res.destroy(); sessions.delete(sid); n++; }
+    return n;
+  }
+
+  /** Cierra las sesiones de quien ya no existe o cambio de rol/espacios. */
+  function sweepSessions() {
+    for (const [sid, s] of sessions) {
+      const u = s.userSnapshot && users.all().find((x) => x.id === s.dev);
+      if (!u || u.role !== s.role || JSON.stringify(u.spaces) !== s.spacesKey) {
+        s.res.destroy();
+        sessions.delete(sid);
+        log({ t: new Date().toISOString(), ev: 'sesion_cerrada', dev: s.dev, motivo: u ? 'permisos_cambiados' : 'baja' });
+      }
+    }
+  }
+
+  const server = http.createServer(async (req, res) => {
     const t0 = Date.now();
     const host = String(req.headers.host || '').split(':')[0].toLowerCase();
     let url;
@@ -57,12 +107,12 @@ export function createGateway({ devs, routes, setupDir = path.join(HERE, 'setup'
     } catch {
       return reply(res, 400, { error: 'bad_request' });
     }
-    // WHATWG URL ya normaliza `..` y `%2e%2e`; se comprueba sobre `pathname`.
     const pathname = url.pathname;
     let dev = '-';
+    let pol = '';
     res.on('close', () => log({
       t: new Date().toISOString(), dev, host, m: req.method, p: pathname,
-      s: res.statusCode, ms: Date.now() - t0,
+      s: res.statusCode, ms: Date.now() - t0, ...(pol ? { pol } : {}),
     }));
 
     if (pathname === '/healthz') return reply(res, 200, { ok: true });
@@ -81,21 +131,94 @@ export function createGateway({ devs, routes, setupDir = path.join(HERE, 'setup'
     if (!route) return reply(res, 404, { error: 'not_found' });
 
     const m = /^Bearer\s+(\S+)$/i.exec(req.headers.authorization || '');
-    dev = (m && devs.get(hashToken(m[1]))) || null;
-    if (!dev) {
-      dev = '-';
+    const user = (m && users.lookup(hashToken(m[1]))) || null;
+    if (!user) {
       res.setHeader('www-authenticate', 'Bearer');
       return reply(res, 401, { error: 'unauthorized' });
     }
+    dev = user.id;
 
-    if (pathname === '/whoami') return reply(res, 200, { dev, route: route.name });
+    if (pathname === '/whoami') return reply(res, 200, { dev, route: route.name, role: user.role });
+    if (!rateOk(dev)) { pol = 'rate_limit'; res.setHeader('retry-after', '60'); return reply(res, 429, { error: 'too_many_requests' }); }
 
-    if (/%2f|%5c/i.test(pathname) || !route.allow.some((p) => pathname.startsWith(p))) {
-      return reply(res, 404, { error: 'not_found' });
+    /** Aplica un veredicto de la politica. Devuelve true si la peticion sigue. */
+    const decide = (r) => {
+      if (r.ok) return true;
+      pol = enforce ? `deny:${r.reason}` : `would_deny:${r.reason}`;
+      if (enforce) { reply(res, 403, { error: 'forbidden', reason: r.reason }); return false; }
+      return true;
+    };
+
+    if (/%2f|%5c/i.test(pathname)) return reply(res, 404, { error: 'not_found' });
+
+    // ----- admin: sin restricciones de politica, solo la lista de rutas -----
+    if (user.role === 'admin') {
+      if (!route.allow.some((p) => pathname.startsWith(p))) return reply(res, 404, { error: 'not_found' });
+      return proxy(req, res, route, user, pathname + url.search, {});
     }
 
-    proxy(req, res, route, dev, pathname + url.search);
+    const isMem0 = route.name === 'mem0';
+
+    // ----- apertura de sesion SSE -----
+    const sse = isMem0 ? /^\/mcp\/([a-z0-9_-]{1,32})\/sse\/([^/]+)$/.exec(pathname) : (pathname === '/mcp' ? [] : null);
+    if (req.method === 'GET' && sse) {
+      let space = null;
+      if (isMem0) {
+        if (!decide(checkMem0Connect(user, sse[2]))) return;
+        space = spaceFromMem0(sse[2]);
+      }
+      return proxy(req, res, route, user, pathname + url.search, {
+        onSession: (sid) => {
+          sessions.set(sid, {
+            dev, kind: route.name, space, res, userSnapshot: true, role: user.role, spacesKey: JSON.stringify(user.spaces),
+          });
+          res.on('close', () => sessions.delete(sid));
+        },
+      });
+    }
+
+    // ----- mensajes de una sesion -----
+    const post = req.method === 'POST' && (isMem0
+      ? /^\/mcp\/messages\/?$|^\/mcp\/[a-z0-9_-]{1,32}\/sse\/([^/]+)\/messages\/?$/.exec(pathname)
+      : /^\/messages\/?$/.exec(pathname));
+    if (post) {
+      let raw;
+      try { raw = await readBody(req); } catch (e) {
+        pol = e.code === 'too_large' ? 'cuerpo_demasiado_grande' : 'cuerpo_ilegible';
+        return reply(res, e.code === 'too_large' ? 413 : 400, { error: pol });
+      }
+      const sid = url.searchParams.get('session_id');
+      const session = sid ? sessions.get(sid) : null;
+      if (!session || session.dev !== dev) {
+        if (!decide({ ok: false, reason: 'sesion_desconocida' })) return;
+      }
+      const parsed = parseRpc(raw.toString('utf8'));
+      if (parsed.error) {
+        if (!decide({ ok: false, reason: parsed.error })) return;
+      } else if (session) {
+        // la ruta con namespace debe coincidir con el de la sesion
+        if (isMem0 && post[1] !== undefined && spaceFromMem0(post[1]) !== session.space) {
+          if (!decide({ ok: false, reason: 'namespace_distinto_al_de_la_sesion' })) return;
+        }
+        const r = isMem0 ? checkMem0Rpc(user, session.space, parsed.msgs) : checkKbRpc(user, parsed.msgs);
+        if (!decide(r)) return;
+      }
+      return proxy(req, res, route, user, pathname + url.search, { body: raw });
+    }
+
+    // ----- cualquier otra ruta -----
+    if (!decide({ ok: false, reason: 'ruta_no_permitida' })) return;
+    if (!route.allow.some((p) => pathname.startsWith(p))) return reply(res, 404, { error: 'not_found' });
+    return proxy(req, res, route, user, pathname + url.search, {});
   });
+
+  server.closeSessions = closeSessions;
+  server.sweepSessions = sweepSessions;
+  server.sessionCount = () => sessions.size;
+  const timer = setInterval(sweepSessions, 5000);
+  timer.unref();
+  server.on('close', () => clearInterval(timer));
+  return server;
 }
 
 function reply(res, status, body) {
@@ -104,15 +227,16 @@ function reply(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-function proxy(req, res, route, dev, upstreamPath) {
+function proxy(req, res, route, user, upstreamPath, { body, onSession }) {
   const target = new URL(route.upstream);
   const lib = target.protocol === 'https:' ? https : http;
 
   const headers = {};
   for (const [k, v] of Object.entries(req.headers)) if (!DROP.has(k)) headers[k] = v;
   headers.host = target.host;
-  headers['x-omnia-dev'] = dev;
+  headers['x-omnia-dev'] = user.id;
   if (route.upstreamAuth) headers.authorization = route.upstreamAuth;
+  if (body) headers['content-length'] = String(body.length);
 
   const up = lib.request({
     protocol: target.protocol,
@@ -124,10 +248,22 @@ function proxy(req, res, route, dev, upstreamPath) {
   }, (ur) => {
     const out = { ...ur.headers };
     delete out.connection;
+    const isSse = String(out['content-type'] || '').startsWith('text/event-stream');
     // SSE: que ningun proxy intermedio acumule los eventos.
-    if (String(out['content-type'] || '').startsWith('text/event-stream')) out['x-accel-buffering'] = 'no';
+    if (isSse) out['x-accel-buffering'] = 'no';
     res.writeHead(ur.statusCode, out);
     res.flushHeaders();
+    if (isSse && onSession) {
+      // El backend anuncia el session_id en el primer evento; hay que asociarlo al dev y al espacio.
+      let seen = '';
+      const tap = (c) => {
+        if (seen === null) return;
+        seen += c.toString('latin1');
+        const sm = /session_id=([A-Za-z0-9_-]{8,64})/.exec(seen);
+        if (sm) { onSession(sm[1]); seen = null; } else if (seen.length > 4096) seen = null;
+      };
+      ur.on('data', tap);
+    }
     ur.pipe(res);
   });
 
@@ -137,7 +273,7 @@ function proxy(req, res, route, dev, upstreamPath) {
   });
   // Si el cliente cierra (fin de una sesion SSE), se corta la conexion al backend.
   res.on('close', () => { if (!res.writableFinished) up.destroy(); });
-  req.pipe(up);
+  if (body) up.end(body); else req.pipe(up);
 }
 
 /** Rutas a partir de variables de entorno. */
@@ -162,13 +298,20 @@ export function routesFromEnv(env) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const devs = parseDevs(process.env.ACCESS_DEVS);
-  if (devs.size === 0) console.error('AVISO: ACCESS_DEVS vacio, todo pedido dara 401.');
+  const store = createStore({
+    envText: process.env.ACCESS_DEVS,
+    adminsText: process.env.ACCESS_ADMINS,
+    file: process.env.ACCESS_USERS_FILE,
+    log: (e) => console.log(JSON.stringify({ t: new Date().toISOString(), ...e })),
+  });
+  if (store.size === 0) console.error('AVISO: no hay usuarios, todo pedido dara 401.');
+  const enforce = process.env.ACCESS_ENFORCE === '1';
+  console.error(`politicas: ${enforce ? 'ACTIVAS (se bloquea)' : 'en AUDITORIA (solo se registra lo que se denegaria)'}`);
   const routes = routesFromEnv(process.env);
   for (const r of routes) {
     if (!r.upstreamAuth) console.error(`AVISO: la ruta ${r.name} no inyecta credenciales al backend.`);
   }
   const port = Number(process.env.PORT || 8080);
-  createGateway({ devs, routes, log: (e) => console.log(JSON.stringify(e)) })
-    .listen(port, () => console.error(`access gateway en :${port} (${devs.size} devs)`));
+  createGateway({ store, routes, enforce, log: (e) => console.log(JSON.stringify(e)) })
+    .listen(port, () => console.error(`access gateway en :${port} (${store.size} usuarios)`));
 }

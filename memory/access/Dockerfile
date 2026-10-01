@@ -1,7 +1,7 @@
 # Omnia memory access gateway — Node nativo, sin dependencias.
 FROM node:22-alpine
 WORKDIR /app
-COPY server.mjs ./
+COPY server.mjs policy.mjs users.mjs ./
 COPY setup ./setup
 USER node
 EXPOSE 8080
