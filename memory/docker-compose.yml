@@ -33,6 +33,9 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - QDRANT_HOST=mem0_store
       - QDRANT_PORT=6333
+      # La base de OpenMemory (usuarios, apps, categorias) vivia en la capa del contenedor y se
+      # perdia en cada redeploy; solo los vectores (Qdrant) sobrevivian. Ahora va al volumen.
+      - DATABASE_URL=sqlite:////usr/src/openmemory/data/openmemory.db
       # LLM/Embedder configurables; por defecto OpenAI. Para usar el gateway de
       # Omnia (API keys de pago, OpenAI-compatible), apunta LLM_BASE_URL ahí.
       - LLM_PROVIDER=${LLM_PROVIDER:-openai}
@@ -46,6 +49,8 @@ services:
       - "127.0.0.1:8765:8765"
     volumes:
       - openmemory_data:/usr/src/openmemory/data
+      # history.db de mem0 (~/.mem0) tambien se perdia en cada redeploy.
+      - openmemory_mem0home:/root/.mem0
     # --workers 1: evita la carrera en SQLite (apps.owner_id) al primer arranque.
     command: >
       sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --workers 1"
@@ -92,6 +97,28 @@ services:
     expose:
       - "8080"
 
+  # Respaldo cifrado y diario de Mem0 (Qdrant + SQLite) a S3/R2. Ver backup/README.md.
+  # Sin BACKUP_PASSPHRASE no respalda nada; sin BACKUP_S3_* solo deja copia local.
+  backup:
+    build: ./backup
+    image: omnia/memory-backup:latest
+    restart: unless-stopped
+    environment:
+      - QDRANT_URL=http://mem0_store:6333
+      - BACKUP_PASSPHRASE=${BACKUP_PASSPHRASE:-}
+      - BACKUP_S3_ENDPOINT=${BACKUP_S3_ENDPOINT:-}
+      - BACKUP_S3_BUCKET=${BACKUP_S3_BUCKET:-}
+      - BACKUP_S3_KEY_ID=${BACKUP_S3_KEY_ID:-}
+      - BACKUP_S3_SECRET=${BACKUP_S3_SECRET:-}
+      - BACKUP_KEEP_DAYS=${BACKUP_KEEP_DAYS:-30}
+    depends_on:
+      - mem0_store
+      - openmemory-mcp
+    volumes:
+      - openmemory_data:/data:ro
+      - openmemory_mem0home:/mem0home:ro
+      - backup_local:/backups
+
   hermes:
     build: ./hermes
     image: omnia/hermes:latest
@@ -120,4 +147,6 @@ services:
 volumes:
   qdrant_storage:
   openmemory_data:
+  openmemory_mem0home:
+  backup_local:
   hermes_state:
