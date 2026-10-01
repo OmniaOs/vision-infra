@@ -1,15 +1,18 @@
 import { UserPlus } from 'lucide-react'
 import { useCallback, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { describeApiError } from '@/shared/api/describe-api-error'
 import { useCurrentSession } from '@/features/authentication/hooks/use-current-session'
+import { RevokeAllTokensDialog } from '@/features/token-management/components/revoke-all-tokens-dialog'
 import { AnimatedButton } from '@/shared/components/animated-button'
 import { PageHeader } from '@/shared/components/page-header'
 import { FadeIn } from '@/shared/motion/fade-in'
 import type { UserRecord } from '@/shared/types/user-record'
+import { AdoptUserDialog } from '../components/adopt-user-dialog'
 import { CreateUserDialog } from '../components/create-user-dialog'
-import { CredentialsActionDialog, type CredentialsAction } from '../components/credentials-action-dialog'
 import { DeleteUserDialog } from '../components/delete-user-dialog'
 import { EditUserDialog } from '../components/edit-user-dialog'
+import { InviteUserDialog } from '../components/invite-user-dialog'
 import type { UserAction } from '../components/user-row-actions'
 import { UserStatsCards } from '../components/user-stats-cards'
 import { UsersTable } from '../components/users-table'
@@ -21,14 +24,22 @@ interface PendingAction {
 }
 
 export function UserManagementPage() {
+  const navigate = useNavigate()
   const { data: session } = useCurrentSession()
   const { data: users = [], isLoading, error } = useUsers()
   const [creating, setCreating] = useState(false)
   const [pending, setPending] = useState<PendingAction | null>(null)
 
-  const handleAction = useCallback((action: UserAction, user: UserRecord) => setPending({ action, user }), [])
+  const handleAction = useCallback(
+    (action: UserAction, user: UserRecord) => {
+      // "Ver sus tokens" no abre un dialogo: lleva a la pagina de tokens ya filtrada por esa persona.
+      if (action === 'tokens') return navigate(`/tokens?person=${encodeURIComponent(user.id)}`)
+      setPending({ action, user })
+    },
+    [navigate],
+  )
   const close = () => setPending(null)
-  const credentialsAction: CredentialsAction | null = pending?.action === 'rotate' || pending?.action === 'invite' ? pending.action : null
+  const userFor = (action: UserAction) => (pending?.action === action ? pending.user : null)
 
   return (
     <div className="space-y-8">
@@ -51,9 +62,11 @@ export function UserManagementPage() {
         <UsersTable users={users} isLoading={isLoading} currentUserId={session?.id ?? ''} onAction={handleAction} />
       </FadeIn>
       <CreateUserDialog open={creating} onOpenChange={setCreating} />
-      <EditUserDialog user={pending?.action === 'edit' ? pending.user : null} onClose={close} />
-      <DeleteUserDialog user={pending?.action === 'delete' ? pending.user : null} onClose={close} />
-      <CredentialsActionDialog action={credentialsAction} user={credentialsAction ? pending!.user : null} onClose={close} />
+      <EditUserDialog user={userFor('edit')} onClose={close} />
+      <InviteUserDialog user={userFor('invite')} onClose={close} />
+      <AdoptUserDialog user={userFor('adopt')} onClose={close} />
+      <RevokeAllTokensDialog user={userFor('revoke-tokens')} onClose={close} />
+      <DeleteUserDialog user={userFor('delete')} onClose={close} />
     </div>
   )
 }

@@ -12,4 +12,7 @@ export interface UserRecord {
   createdAt: string | null
   /** Ya tiene contrasena del portal. */
   portal: boolean
+  /** Tokens activos (los de Coolify cuentan). */
+  tokenCount: number
+  lastUsedAt: string | null
 }

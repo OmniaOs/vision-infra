@@ -14,6 +14,10 @@ const MESSAGES: Record<string, string> = {
   gestionado_por_variable_de_entorno: 'Esta persona se gestiona en Coolify, no desde el portal.',
   no_puedes_darte_de_baja_a_ti_mismo: 'No puedes darte de baja a ti mismo.',
   no_puedes_quitarte_el_rol_admin: 'No puedes quitarte el rol de administrador a ti mismo.',
+  limite_de_tokens: 'Ya tiene el máximo de tokens activos. Revoca alguno para crear otro.',
+  requiere_sesion_del_portal: 'Para crear tokens entra al portal con tu usuario y contraseña.',
+  gestionado_en_coolify: 'Ese token se quita en Coolify, no desde el portal.',
+  no_aplica: 'Esta acción no se puede hacer con esta persona.',
   sin_archivo_de_usuarios: 'El servidor aún no tiene activado el archivo de usuarios.',
   unauthorized: 'Tu sesión terminó. Vuelve a entrar.',
 }

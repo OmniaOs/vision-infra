@@ -7,6 +7,7 @@ import { UserPortalStatus } from './user-portal-status'
 import { UserRoleBadge } from './user-role-badge'
 import { UserRowActions, type UserAction } from './user-row-actions'
 import { UserSpacesList } from './user-spaces-list'
+import { UserTokensSummary } from './user-tokens-summary'
 
 interface ColumnOptions {
   currentUserId: string
@@ -35,6 +36,13 @@ export function createUsersTableColumns({ currentUserId, onAction }: ColumnOptio
       meta: { title: 'Espacios' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Espacios" />,
       cell: ({ row }) => <UserSpacesList role={row.original.role} spaces={row.original.spaces} />,
+    },
+    {
+      id: 'tokens',
+      accessorFn: (user) => user.lastUsedAt ?? '',
+      meta: { title: 'Tokens' },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Tokens · último uso" />,
+      cell: ({ row }) => <UserTokensSummary user={row.original} />,
     },
     {
       id: 'portal',

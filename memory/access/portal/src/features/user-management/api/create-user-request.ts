@@ -1,6 +1,6 @@
 import { httpPost } from '@/shared/api/http-client'
 import type { UserRole } from '@/shared/types/user-role'
-import type { IssuedCredentials, McpCommands, PortalInvitation } from '../types/issued-credentials'
+import type { IssuedCredentials, McpCommands, PortalInvitation } from '@/shared/types/issued-credentials'
 
 export interface CreateUserPayload {
   id: string

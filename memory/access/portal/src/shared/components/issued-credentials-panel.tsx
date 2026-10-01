@@ -5,16 +5,16 @@ import { formatDateTime } from '@/shared/lib/format-date'
 import { fadeUpVariants } from '@/shared/motion/motion-presets'
 import { StaggerGroup } from '@/shared/motion/stagger-group'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
-import type { IssuedCredentials } from '../types/issued-credentials'
+import type { IssuedCredentials } from '@/shared/types/issued-credentials'
 
 /** Lo recien emitido. El servidor no lo vuelve a mostrar, asi que el aviso va primero. */
-export function IssuedCredentialsPanel({ credentials }: { credentials: IssuedCredentials }) {
+export function IssuedCredentialsPanel({ credentials, forSelf = false }: { credentials: IssuedCredentials; forSelf?: boolean }) {
   const { invitation, mcpToken, commands } = credentials
   return (
     <StaggerGroup className="space-y-4" stagger={0.07}>
       <motion.div variants={fadeUpVariants} className="flex gap-3 rounded-xl border border-amber/40 bg-amber/10 p-3 text-sm">
         <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber" aria-hidden />
-        <p>Cópialo ahora y envíaselo a {credentials.userId} por un canal privado. No se vuelve a mostrar.</p>
+        <p>{forSelf ? 'Cópialo ahora y guárdalo en un lugar seguro.' : `Cópialo ahora y envíaselo a ${credentials.userId} por un canal privado.`} No se vuelve a mostrar.</p>
       </motion.div>
       {invitation ? (
         <motion.div variants={fadeUpVariants} className="space-y-1.5">

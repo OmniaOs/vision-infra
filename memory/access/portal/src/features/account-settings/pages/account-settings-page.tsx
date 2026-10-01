@@ -3,7 +3,7 @@ import { PageHeader } from '@/shared/components/page-header'
 import { StaggerGroup } from '@/shared/motion/stagger-group'
 import { StaggerItem } from '@/shared/motion/stagger-item'
 import { ChangePasswordCard } from '../components/change-password-card'
-import { RotateOwnTokenCard } from '../components/rotate-own-token-card'
+import { MyTokensCard } from '../components/my-tokens-card'
 import { SessionSummaryCard } from '../components/session-summary-card'
 
 export function AccountSettingsPage() {
@@ -20,7 +20,7 @@ export function AccountSettingsPage() {
           <ChangePasswordCard userId={session.id} />
         </StaggerItem>
         <StaggerItem>
-          <RotateOwnTokenCard userId={session.id} canRotate={session.portal} />
+          <MyTokensCard />
         </StaggerItem>
       </StaggerGroup>
     </div>

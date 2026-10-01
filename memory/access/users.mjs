@@ -105,7 +105,7 @@ export function createStore({ envText = '', adminsText = '', file, log = () => {
     const addCred = (cred) => { c.set(cred.hash, cred); };
     for (const u of parseUsers(envText)) {
       p.set(u.id, { id: u.id, role: u.role, spaces: u.spaces, origin: 'env', createdAt: null });
-      addCred({ tid: `env:${u.id}`, userId: u.id, hash: u.hash, label: 'Definido en Coolify', origin: 'env' });
+      addCred({ tid: `env:${u.id}`, userId: u.id, hash: u.hash, label: 'Token de Coolify', origin: 'env' });
     }
     if (file && existsSync(file)) {
       data = readStoreFile(file);
@@ -130,7 +130,7 @@ export function createStore({ envText = '', adminsText = '', file, log = () => {
     for (const u of parseUsers(adminsText, { forceRole: 'admin' })) {
       const prev = p.get(u.id);
       p.set(u.id, { id: u.id, role: 'admin', spaces: [], origin: 'admins', createdAt: prev ? prev.createdAt : null });
-      addCred({ tid: `admins:${u.id}`, userId: u.id, hash: u.hash, label: 'Acceso de emergencia (Coolify)', origin: 'admins' });
+      addCred({ tid: `admins:${u.id}`, userId: u.id, hash: u.hash, label: 'Acceso de emergencia', origin: 'admins' });
     }
     people = p; creds = c; revoked = rev;
   }

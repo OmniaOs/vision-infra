@@ -35,6 +35,8 @@ interface DataTableProps<TData> {
   emptyTitle: string
   emptyDescription: string
   initialColumnVisibility?: VisibilityState
+  /** Busqueda con la que arranca la tabla. */
+  initialGlobalFilter?: string
 }
 
 /**
@@ -53,12 +55,13 @@ export function DataTable<TData>({
   emptyTitle,
   emptyDescription,
   initialColumnVisibility = {},
+  initialGlobalFilter = '',
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(initialColumnVisibility)
   const [rowSelection, setRowSelection] = useState({})
-  const [globalFilter, setGlobalFilter] = useState('')
+  const [globalFilter, setGlobalFilter] = useState(initialGlobalFilter)
 
   const table = useReactTable({
     data,

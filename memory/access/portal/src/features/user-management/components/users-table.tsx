@@ -34,6 +34,7 @@ export function UsersTable({ users, isLoading, currentUserId, onAction }: UsersT
         { columnId: 'role', title: 'Rol', options: ROLE_OPTIONS },
         { columnId: 'portal', title: 'Portal', options: PORTAL_OPTIONS },
       ]}
+      initialColumnVisibility={{ createdAt: false }}
       emptyTitle="Nadie coincide"
       emptyDescription="Prueba con otra búsqueda o quita los filtros."
     />

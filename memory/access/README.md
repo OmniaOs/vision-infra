@@ -74,7 +74,7 @@ usuario y contraseña. Un token robado no abre el portal, ni al revés.
 - Toda escritura con cookie exige el mismo origen y una marca CSRF propia de la sesión.
 - **5 fallos de contraseña bloquean 15 minutos** esa combinación origen+usuario (y 30 el usuario en general). Nunca bloquea
   sesiones ya abiertas ni a otras personas.
-- Cada persona puede cambiar su contraseña (cierra sus otras sesiones) y **rotar su propio token** del MCP si es del archivo.
+- Cada persona puede cambiar su contraseña (cierra sus otras sesiones) y **gestionar sus propios tokens** (ver abajo).
 - Las personas de `ACCESS_DEVS` y `ACCESS_ADMINS` (Coolify) también reciben invitación al portal.
 - **Pendiente:** segundo factor (TOTP). Se decidió empezar solo con contraseña.
 - **Primer admin:** pon tu hash en `ACCESS_ADMINS` de Coolify y pide tu propia invitación con tu token de MCP:
@@ -85,20 +85,39 @@ API (cookie de sesión, o el token de la persona como `Authorization: Bearer` pa
 | Acción | Llamada |
 |---|---|
 | Entrar / canjear invitación | `POST /api/auth/login` · `POST /api/auth/accept-invite` |
-| Quién soy, salir, cambiar contraseña, rotar mi token | `GET /api/me` · `POST /api/auth/logout` · `/api/auth/password` · `/api/me/rotate-token` |
+| Quién soy, salir, cambiar contraseña | `GET /api/me` · `POST /api/auth/logout` · `/api/auth/password` |
+| Mis tokens: listar, crear, revocar | `GET/POST /api/me/tokens` · `DELETE /api/me/tokens/<tid>` |
 | Listar personas | `GET /api/admin/users` (sin hashes ni tokens) |
 | **Alta** | `POST /api/admin/users` `{id, role, spaces}` → devuelve **una vez** el token del MCP, su comando y la invitación al portal |
 | Invitación / restablecer contraseña | `POST /api/admin/users/<id>/invite` |
 | Cambiar rol o espacios | `PATCH /api/admin/users/<id>`; corta sus sesiones abiertas |
-| Rotar token | `POST /api/admin/users/<id>/rotate`; el anterior deja de servir |
+| Tokens de todos | `GET /api/admin/tokens` · `GET/POST /api/admin/users/<id>/tokens` · `DELETE /api/admin/tokens/<tid>` · `POST /api/admin/users/<id>/tokens/revoke-all` |
+| **Migrar** a una persona de `ACCESS_DEVS` al portal | `POST /api/admin/users/<id>/adopt` (conserva su token) |
 | **Baja** | `DELETE /api/admin/users/<id>`; inmediata en las dos memorias |
 
 - **Sin redeploy:** el cambio se escribe en `/data/users.json` y se aplica en el mismo instante. Las demás personas no notan nada.
-- Las personas de `ACCESS_DEVS` y `ACCESS_ADMINS` (Coolify) se ven pero **no se editan aquí**. `ACCESS_ADMINS` queda como acceso de emergencia.
+- Las personas de `ACCESS_DEVS` se ven pero **no se editan aquí** hasta migrarlas al portal (botón «Migrar al portal»). `ACCESS_ADMINS` queda como acceso de emergencia y nunca se migra.
 - No puedes darte de baja ni quitarte el rol de admin a ti mismo.
 - Cada acción administrativa queda en el log (`ev: admin_action`, con quién y a quién; nunca el token).
 - El respaldo cifrado de Mem0 incluye `users.json` y `portal.json` (solo hashes).
 - Las páginas se sirven con una política de contenido estricta (sin scripts en línea) y los tokens inválidos se frenan por origen sin afectar nunca a un token válido.
+
+## Tokens (varios por persona)
+
+Una persona puede tener **varios tokens**, uno por equipo o editor. Cada uno guarda nombre, quién y cuándo lo creó,
+**último uso** (fecha, IP y cliente) y estado. Se ven y se revocan en el portal (página *Tokens*); revocar corta al
+instante las conexiones abiertas de ese token y deja funcionando los demás.
+
+- Los tokens de **Coolify** (`ACCESS_DEVS` / `ACCESS_ADMINS`) se ven pero **no se revocan desde el portal**; se quitan en Coolify.
+  Ya no se pisan: un token nuevo en `ACCESS_ADMINS` no deja fuera al anterior de la misma persona.
+- **Dejar de depender de Coolify:** «Migrar al portal» pasa a una persona de `ACCESS_DEVS` al archivo con su mismo token;
+  después se borra su línea en Coolify. Los tokens nuevos de cualquiera nacen ya en el portal.
+- **Límites:** 20 tokens activos por persona. Los revocados quedan 90 días como historial.
+- Crear tokens exige sesión del portal (contraseña); con solo un token (Bearer) únicamente puede un admin. Así un token
+  robado no puede fabricar otros que sobrevivan a su revocación.
+- «Último uso» se guarda en disco como mucho cada 30 s; el de los tokens de Coolify vive solo en memoria (se reinicia al redeployar).
+- El «dispositivo» es el cliente que se conectó (su `User-Agent`) más la IP; no hay forma de nombrar el equipo físico.
+- Archivo `users.json` v2 (`users` + `tokens`); el formato anterior se migra solo al leerlo.
 
 ## Dar de alta a un dev (admin, ~1 minuto)
 

@@ -7,8 +7,8 @@ import type { UserRole } from '@/shared/types/user-role'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
 import { Input } from '@/shared/ui/input'
 import { useCreateUser } from '../hooks/use-create-user'
-import type { IssuedCredentials } from '../types/issued-credentials'
-import { IssuedCredentialsPanel } from './issued-credentials-panel'
+import type { IssuedCredentials } from '@/shared/types/issued-credentials'
+import { IssuedCredentialsPanel } from '@/shared/components/issued-credentials-panel'
 import { UserPermissionsFields } from './user-permissions-fields'
 
 const USER_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{1,31}$/
