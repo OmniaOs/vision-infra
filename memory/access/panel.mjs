@@ -10,19 +10,26 @@
 //   GET    /api/me
 //   POST   /api/auth/logout
 //   POST   /api/auth/password               {current, next}
-//   POST   /api/me/rotate-token             token MCP nuevo (una vez); solo personas del archivo
+//   GET    /api/me/tokens                   mis tokens (nombre, creacion, ultimo uso, dispositivo, estado)
+//   POST   /api/me/tokens {label}           token nuevo (una vez); con sesion del portal (o Bearer de un admin)
+//   DELETE /api/me/tokens/:tid              revocar uno mio (corta sus conexiones al instante)
 //   Solo admin
 //   GET    /api/admin/users
 //   POST   /api/admin/users                 {id, role, spaces}   -> token MCP + invitacion (una vez)
 //   PATCH  /api/admin/users/:id             {role?, spaces?}
-//   POST   /api/admin/users/:id/rotate      token MCP nuevo
+//   GET    /api/admin/tokens                todos los tokens de todas las personas
+//   GET|POST /api/admin/users/:id/tokens    ver o crear tokens de una persona
+//   POST   /api/admin/users/:id/tokens/revoke-all   revocar todos los del portal de una persona
+//   DELETE /api/admin/tokens/:tid           revocar cualquiera del portal
+//   POST   /api/admin/users/:id/adopt       migrar una persona de ACCESS_DEVS al portal (mismo token)
 //   POST   /api/admin/users/:id/invite      invitacion nueva (alta o restablecer contrasena)
 //   DELETE /api/admin/users/:id             baja inmediata
 //
-// Las personas de ACCESS_DEVS / ACCESS_ADMINS se ven pero su rol y su token se cambian en Coolify.
+// Las personas de ACCESS_DEVS / ACCESS_ADMINS se ven; su rol se cambia en Coolify hasta migrarlas al portal.
+// Sus tokens de Coolify se ven pero no se revocan aqui; los tokens del portal si.
 
 import { randomBytes } from 'node:crypto';
-import { hashToken } from './users.mjs';
+import { hashToken, TOKEN_LIMIT } from './users.mjs';
 import { validateUser } from './policy.mjs';
 
 const ID_RE = /^[a-z0-9][a-z0-9._-]{0,31}$/;
@@ -47,10 +54,14 @@ function readJson(req, limit = 16 * 1024) {
   });
 }
 
-const publicUser = (u, auth) => ({
-  id: u.id, role: u.role, spaces: u.spaces, origin: u.origin || 'env', editable: u.origin === 'file',
-  createdAt: u.createdAt || null, portal: auth.hasPassword(u.id),
-});
+const publicUser = (u, auth, tokens = []) => {
+  const active = tokens.filter((t) => !t.revokedAt);
+  return {
+    id: u.id, role: u.role, spaces: u.spaces, origin: u.origin || 'env', editable: u.origin === 'file',
+    createdAt: u.createdAt || null, portal: auth.hasPassword(u.id),
+    tokenCount: active.length, lastUsedAt: active.map((t) => t.lastUsedAt).filter(Boolean).sort().pop() || null,
+  };
+};
 
 export function createPanelApi({
   store, auth, closeSessions, log = () => {}, memoryDomain = 'memory.omniaos.ai', panelDomain = 'memorypanel.omniaos.ai',
@@ -65,6 +76,31 @@ export function createPanelApi({
     return { link: `https://${panelDomain}/#invitacion=${inv.token}`, expiresAt: inv.expiresAt };
   };
   const exists = (id) => store.all().some((u) => u.id === id);
+  const labelOf = (b) => (typeof b.label === 'string' ? b.label.trim() : '');
+  /** Crea un token del portal para `userId`. Devuelve [status, cuerpo]. */
+  function issueToken(userId, label, createdBy) {
+    if (!store.writable) return [503, { error: 'sin_archivo_de_usuarios', detail: 'Falta ACCESS_USERS_FILE en el servidor' }];
+    if (!label || label.length > 40) return [400, { error: 'invalido', detail: 'El token necesita un nombre de hasta 40 caracteres' }];
+    const token = newToken();
+    try {
+      const record = store.addToken(userId, hashToken(token), { label, createdBy });
+      return [201, { token, commands: commands(token), record, aviso: 'Se muestra una sola vez; solo se guarda su hash.' }];
+    } catch (e) {
+      if (e.message === 'limite_de_tokens') return [409, { error: 'limite_de_tokens', detail: `Maximo ${TOKEN_LIMIT} tokens activos por persona` }];
+      if (e.message === 'no_existe') return [404, { error: 'no_existe' }];
+      throw e;
+    }
+  }
+  /** Revoca un token del portal y corta sus conexiones. Devuelve [status, cuerpo]. */
+  function revokeTokenById(tid, by) {
+    if (!store.writable) return [503, { error: 'sin_archivo_de_usuarios' }];
+    const r = store.revokeToken(tid);
+    if (r.error === 'no_existe') return [404, { error: 'no_existe' }];
+    if (r.error) return [409, { error: r.error, detail: 'Ese token se quita en Coolify (ACCESS_DEVS / ACCESS_ADMINS)' }];
+    const cut = closeSessions(r.userId, tid);
+    log({ t: new Date().toISOString(), ev: 'admin_action', by, action: 'revocar_token', target: r.userId, tid, sesiones_cerradas: cut });
+    return [200, { ok: true, sesiones_cerradas: cut }];
+  }
   const sender = (res) => (status, body, headers = {}) => {
     res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store', ...headers });
     res.end(JSON.stringify(body));
@@ -136,17 +172,20 @@ export function createPanelApi({
         log({ t: new Date().toISOString(), ev: 'contrasena_cambiada', id: actor.id, sesiones_cerradas: r.cerradas });
         return send(200, { ok: true, sesiones_cerradas: r.cerradas });
       }
-      if (p === '/api/me/rotate-token' && req.method === 'POST') {
-        if (!store.writable) return send(503, { error: 'sin_archivo_de_usuarios' });
-        const list = store.fileUsers();
-        const i = list.findIndex((u) => u.id === actor.id);
-        if (i < 0) return send(409, { error: 'gestionado_por_variable_de_entorno', detail: 'Tu token lo cambia un admin en Coolify' });
-        const token = newToken();
-        list[i] = { ...list[i], hash: hashToken(token) };
-        store.setFileUsers(list);
-        const cut = closeSessions(actor.id);
-        log({ t: new Date().toISOString(), ev: 'token_propio_rotado', id: actor.id, sesiones_cerradas: cut });
-        return send(200, { token, commands: commands(token), sesiones_cerradas: cut, aviso: 'Se muestra una sola vez; el anterior ya no sirve.' });
+      if (p === '/api/me/tokens' && req.method === 'GET') return send(200, { tokens: store.tokensOf(actor.id) });
+      if (p === '/api/me/tokens' && req.method === 'POST') {
+        // Con un Bearer de alguien que no es admin no se crean mas tokens: un token robado no puede perpetuarse.
+        if (ctx.via !== 'cookie' && actor.role !== 'admin') return send(403, { error: 'requiere_sesion_del_portal' });
+        const [status, body] = issueToken(actor.id, labelOf(await readJson(req)), actor.id);
+        if (status === 201) audit('crear_token', actor.id, { tid: body.record.tid });
+        return send(status, body);
+      }
+      const mine = /^\/api\/me\/tokens\/([A-Za-z0-9:_.-]+)$/.exec(p);
+      if (mine && req.method === 'DELETE') {
+        const tid = decodeURIComponent(mine[1]);
+        if (!store.tokensOf(actor.id).some((t) => t.tid === tid)) return send(404, { error: 'no_existe' });
+        const [status, body] = revokeTokenById(tid, actor.id);
+        return send(status, body);
       }
 
       if (!p.startsWith('/api/admin/')) return send(404, { error: 'not_found' });
@@ -154,7 +193,13 @@ export function createPanelApi({
       if (!store.writable) return send(503, { error: 'sin_archivo_de_usuarios', detail: 'Falta ACCESS_USERS_FILE en el servidor' });
 
       if (p === '/api/admin/users' && req.method === 'GET') {
-        return send(200, { users: store.all().map((u) => publicUser(u, auth)).sort((a, b) => a.id.localeCompare(b.id)) });
+        return send(200, { users: store.all().map((u) => publicUser(u, auth, store.tokensOf(u.id))).sort((a, b) => a.id.localeCompare(b.id)) });
+      }
+      if (p === '/api/admin/tokens' && req.method === 'GET') return send(200, { tokens: store.allTokens() });
+      const adminToken = /^\/api\/admin\/tokens\/([A-Za-z0-9:_.-]+)$/.exec(p);
+      if (adminToken && req.method === 'DELETE') {
+        const [status, body] = revokeTokenById(decodeURIComponent(adminToken[1]), actor.id);
+        return send(status, body);
       }
 
       if (p === '/api/admin/users' && req.method === 'POST') {
@@ -164,13 +209,13 @@ export function createPanelApi({
         if (err) return send(400, { error: 'invalido', detail: err });
         if (exists(rec.id)) return send(409, { error: 'ya_existe' });
         const token = newToken();
-        store.setFileUsers([...store.fileUsers(), { ...rec, hash: hashToken(token), active: true, createdAt: new Date().toISOString() }]);
+        store.createFileUser(rec, hashToken(token), { label: 'Token inicial', createdBy: actor.id });
         audit('alta', rec.id, { role: rec.role, spaces: rec.spaces });
         return send(201, { user: { id: rec.id, role: rec.role, spaces: rec.spaces }, token, commands: commands(token), invite: inviteInfo(rec.id),
           aviso: 'El token del MCP y la invitacion al portal se muestran una sola vez y no se guardan en claro.' });
       }
 
-      const m = /^\/api\/admin\/users\/([^/]+?)(\/rotate|\/invite)?$/.exec(p);
+      const m = /^\/api\/admin\/users\/([^/]+?)(\/invite|\/adopt|\/tokens|\/tokens\/revoke-all)?$/.exec(p);
       if (!m) return send(404, { error: 'not_found' });
       const id = decodeURIComponent(m[1]);
       if (!ID_RE.test(id)) return send(400, { error: 'id_invalido' });
@@ -182,20 +227,29 @@ export function createPanelApi({
         return send(200, { id, invite: inviteInfo(id), aviso: 'Se muestra una sola vez; sustituye a la invitacion anterior.' });
       }
 
-      if (target.origin !== 'file') return send(409, { error: 'gestionado_por_variable_de_entorno', detail: 'Se cambia en Coolify (ACCESS_DEVS / ACCESS_ADMINS)' });
+      if (m[2] === '/tokens' && req.method === 'GET') return send(200, { tokens: store.tokensOf(id) });
+      if (m[2] === '/tokens' && req.method === 'POST') {
+        const [status, body] = issueToken(id, labelOf(await readJson(req)), actor.id);
+        if (status === 201) audit('crear_token', id, { tid: body.record.tid });
+        return send(status, body);
+      }
+      if (m[2] === '/tokens/revoke-all' && req.method === 'POST') {
+        const n = store.revokeUserTokens(id);
+        const cut = closeSessions(id);
+        audit('revocar_todos', id, { tokens: n, sesiones_cerradas: cut });
+        return send(200, { ok: true, revocados: n, sesiones_cerradas: cut });
+      }
+      if (m[2] === '/adopt' && req.method === 'POST') {
+        if (target.origin !== 'env') return send(409, { error: 'no_aplica', detail: 'Solo se migran las personas de ACCESS_DEVS' });
+        store.adoptEnvUser(id);
+        audit('migrar_al_portal', id);
+        return send(200, { ok: true, aviso: 'Ya se gestiona desde el portal. Puedes quitar su linea de ACCESS_DEVS en Coolify.' });
+      }
+
+      if (target.origin !== 'file') return send(409, { error: 'gestionado_por_variable_de_entorno', detail: 'Se cambia en Coolify (ACCESS_DEVS / ACCESS_ADMINS) o migrala al portal' });
       const list = store.fileUsers();
       const idx = list.findIndex((u) => u.id === id);
       if (idx < 0) return send(404, { error: 'no_existe' });
-
-      if (m[2] === '/rotate' && req.method === 'POST') {
-        const token = newToken();
-        list[idx] = { ...list[idx], hash: hashToken(token) };
-        store.setFileUsers(list);
-        const cut = closeSessions(id);
-        audit('rotar_token', id, { sesiones_cerradas: cut });
-        return send(200, { user: { id }, token, commands: commands(token), sesiones_cerradas: cut,
-          aviso: 'El token anterior ya no sirve. Este se muestra una sola vez.' });
-      }
 
       if (req.method === 'PATCH') {
         const b = await readJson(req);
@@ -207,7 +261,7 @@ export function createPanelApi({
         store.setFileUsers(list);
         const cut = closeSessions(id); // las sesiones del MCP se reabren con los permisos nuevos
         audit('cambio', id, { role: next.role, spaces: next.spaces, sesiones_cerradas: cut });
-        return send(200, { user: publicUser({ ...next, origin: 'file' }, auth), sesiones_cerradas: cut });
+        return send(200, { user: publicUser({ ...next, origin: 'file' }, auth, store.tokensOf(id)), sesiones_cerradas: cut });
       }
 
       if (req.method === 'DELETE') {

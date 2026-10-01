@@ -119,9 +119,10 @@ export function createGateway({
     if (!f || now - f.windowStart >= 60000) fails.set(ip, { windowStart: now, n: 1 }); else f.n++;
   };
 
-  function closeSessions(devId) {
+  /** Corta las conexiones SSE de una persona o, con `tid`, solo las de ese token. */
+  function closeSessions(devId, tid) {
     let n = 0;
-    for (const [sid, s] of sessions) if (s.dev === devId) { s.res.destroy(); sessions.delete(sid); n++; }
+    for (const [sid, s] of sessions) if (s.dev === devId && (!tid || s.tid === tid)) { s.res.destroy(); sessions.delete(sid); n++; }
     return n;
   }
 
@@ -197,6 +198,7 @@ export function createGateway({
       if (bm) {
         actor = users.lookup(hashToken(bm[1]));
         ctx = { via: 'bearer' };
+        users.touch(actor, { ip, agent: req.headers['user-agent'] });
       } else {
         const s = auth.session(req.headers.cookie);
         if (s) { actor = users.byId(s.id); ctx = { via: 'cookie', session: s }; if (!actor) auth.logout(s.key); }
@@ -225,6 +227,7 @@ export function createGateway({
       return reply(res, 401, { error: 'unauthorized' });
     }
     dev = user.id;
+    users.touch(user, { ip, agent: req.headers['user-agent'] });
 
     if (pathname === '/whoami') return reply(res, 200, { dev, route: route.name, role: user.role });
     if (!rateOk(dev)) { pol = 'rate_limit'; res.setHeader('retry-after', '60'); return reply(res, 429, { error: 'too_many_requests' }); }
@@ -242,7 +245,7 @@ export function createGateway({
     const isMem0 = route.name === 'mem0';
     const track = (space) => (sid) => {
       sessions.set(sid, {
-        dev, kind: route.name, space, res, userSnapshot: true, role: user.role, spacesKey: JSON.stringify(user.spaces),
+        dev, tid: user.tokenId, kind: route.name, space, res, userSnapshot: true, role: user.role, spacesKey: JSON.stringify(user.spaces),
       });
       res.on('close', () => sessions.delete(sid));
     };

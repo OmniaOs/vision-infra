@@ -168,15 +168,49 @@ test('CAMBIO DE CONTRASENA: la actual debe ser correcta, la anterior deja de ser
   assert.equal((await call('POST', '/api/auth/login', { body: { id: 'pw1', password: next } })).status, 200);
 });
 
-test('ROTAR EL PROPIO TOKEN: sirve en el MCP al instante, y las personas de Coolify no pueden', async () => {
+test('MIS TOKENS: crear con sesion del portal, listar, revocar el propio; un Bearer ajeno no perpetua su acceso', async () => {
   const p = await newPerson('rot1');
-  assert.equal((await call('GET', '/whoami', { token: p.mcpToken, host: 'mem.test' })).status, 200);
-  const r = await call('POST', '/api/me/rotate-token', { cookie: p.cookie, csrf: p.csrf, body: {} });
-  assert.equal(r.status, 200);
-  assert.equal((await call('GET', '/whoami', { token: p.mcpToken, host: 'mem.test' })).status, 401, 'el viejo ya no sirve');
-  assert.equal((await call('GET', '/whoami', { token: r.body.token, host: 'mem.test' })).body.dev, 'rot1');
-  const e = await call('POST', '/api/me/rotate-token', { token: ENVT, body: {} });
-  assert.equal(e.status, 409);
+  const mem = (token) => call('GET', '/whoami', { token, host: 'mem.test' });
+  assert.equal((await mem(p.mcpToken)).status, 200);
+
+  // Un token robado (Bearer) no puede fabricar otros que sobrevivan a su revocacion.
+  const stolen = await call('POST', '/api/me/tokens', { token: p.mcpToken, body: { label: 'x' } });
+  assert.equal(stolen.status, 403);
+  assert.equal(stolen.body.error, 'requiere_sesion_del_portal');
+
+  assert.equal((await call('POST', '/api/me/tokens', { cookie: p.cookie, csrf: p.csrf, body: {} })).status, 400);
+  const r = await call('POST', '/api/me/tokens', { cookie: p.cookie, csrf: p.csrf, body: { label: 'Mi laptop' } });
+  assert.equal(r.status, 201);
+  assert.equal((await mem(r.body.token)).body.dev, 'rot1');
+  assert.equal((await mem(p.mcpToken)).status, 200, 'crear uno no tumba los otros');
+
+  const mine = await call('GET', '/api/me/tokens', { cookie: p.cookie });
+  assert.deepEqual(mine.body.tokens.map((t) => t.label).sort(), ['Mi laptop', 'Token inicial']);
+  assert.equal(/hash|omnia_[A-Za-z0-9_-]{30,}/.test(mine.text), false);
+
+  const del = await call('DELETE', `/api/me/tokens/${r.body.record.tid}`, { cookie: p.cookie, csrf: p.csrf });
+  assert.equal(del.status, 200);
+  assert.equal((await mem(r.body.token)).status, 401, 'revocado al instante');
+  assert.equal((await mem(p.mcpToken)).status, 200);
+  assert.equal((await call('DELETE', '/api/me/tokens/t_ajeno', { cookie: p.cookie, csrf: p.csrf })).status, 404);
+  assert.equal((await call('DELETE', `/api/me/tokens/${r.body.record.tid}`, { cookie: p.cookie })).status, 403, 'sin la marca CSRF no');
+
+  // No se pueden revocar los tokens de otra persona por esta via.
+  const other = await newPerson('rot2');
+  const theirs = (await call('GET', '/api/me/tokens', { cookie: other.cookie })).body.tokens[0].tid;
+  assert.equal((await call('DELETE', `/api/me/tokens/${theirs}`, { cookie: p.cookie, csrf: p.csrf })).status, 404);
+  assert.equal((await mem(other.mcpToken)).status, 200);
+});
+
+test('MIS TOKENS: un admin crea los suyos con su token; el de Coolify se ve pero no se revoca', async () => {
+  const made = await call('POST', '/api/me/tokens', { token: ADM, body: { label: 'Mi laptop' } });
+  assert.equal(made.status, 201);
+  assert.equal((await call('GET', '/whoami', { token: made.body.token, host: 'mem.test' })).body.role, 'admin');
+  const list = (await call('GET', '/api/me/tokens', { token: ADM })).body.tokens;
+  assert.deepEqual(list.map((t) => [t.origin, t.managed]).sort(), [['admins', false], ['file', true]]);
+  assert.equal((await call('DELETE', '/api/me/tokens/admins:adm', { token: ADM })).status, 409);
+  assert.equal((await call('DELETE', `/api/me/tokens/${made.body.record.tid}`, { token: ADM })).status, 200);
+  assert.equal((await call('GET', '/whoami', { token: ADM, host: 'mem.test' })).status, 200, 'el de Coolify sigue');
 });
 
 test('persona de Coolify (ACCESS_DEVS): el admin le abre el portal con una invitacion', async () => {

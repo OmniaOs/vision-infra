@@ -164,12 +164,82 @@ test('CAMBIO: nuevos permisos y se corta la sesion abierta de esa persona', asyn
   assert.equal((await panel('PATCH', '/api/admin/users/envuser', ADM, { role: 'lectura' })).status, 409);
 });
 
-test('ROTAR: el token anterior deja de servir y el nuevo sirve', async () => {
-  const r = await panel('POST', '/api/admin/users/ana/rotate', ADM);
-  assert.equal(r.status, 200);
-  assert.equal((await call('mem.test', 'GET', '/whoami', newToken)).status, 401);
-  assert.equal((await call('mem.test', 'GET', '/whoami', r.body.token)).body.dev, 'ana');
-  newToken = r.body.token;
+test('TOKENS: varios por persona, con ultimo uso; revocar uno corta sus conexiones y deja los demas', async () => {
+  const first = await panel('GET', '/api/admin/users/ana/tokens', ADM);
+  assert.equal(first.status, 200);
+  assert.equal(first.body.tokens.length, 1);
+  assert.equal(first.body.tokens[0].label, 'Token inicial');
+  assert.ok(first.body.tokens[0].lastUsedAt, 'ya se uso en las pruebas anteriores');
+  assert.equal(/hash|omnia_[A-Za-z0-9_-]{30,}/.test(first.text), false, 'el listado no expone hashes ni tokens');
+
+  assert.equal((await panel('POST', '/api/admin/users/ana/tokens', ADM, {})).status, 400, 'el nombre es obligatorio');
+  assert.equal((await panel('POST', '/api/admin/users/ana/tokens', ADM, { label: 'x'.repeat(41) })).status, 400);
+  const made = await panel('POST', '/api/admin/users/ana/tokens', ADM, { label: 'Laptop de casa' });
+  assert.equal(made.status, 201);
+  assert.equal(made.body.record.label, 'Laptop de casa');
+  assert.match(made.body.commands.unix, /OMNIA_TOKEN='omnia_/);
+  assert.equal((await call('mem.test', 'GET', '/whoami', made.body.token)).body.dev, 'ana');
+  assert.equal((await call('mem.test', 'GET', '/whoami', newToken)).body.dev, 'ana', 'el anterior sigue sirviendo');
+
+  // el token nuevo abre una sesion SSE; al revocar el ORIGINAL esa sesion no se toca
+  const open = (tok) => new Promise((resolve, reject) => {
+    const req = http.request({ port, host: '127.0.0.1', path: '/mcp/claude/sse/int-frutal', headers: { host: 'mem.test', authorization: `Bearer ${tok}`, accept: 'text/event-stream' } }, (res) => {
+      res.once('data', () => resolve(res));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+  const viva = await open(made.body.token);
+  const condenada = await open(newToken);
+  let vivaCerrada = false;
+  viva.on('close', () => { vivaCerrada = true; });
+  const condenadaCerrada = new Promise((r) => { condenada.on('close', r); condenada.on('error', r); });
+
+  const original = first.body.tokens[0].tid;
+  const revoked = await panel('DELETE', `/api/admin/tokens/${original}`, ADM);
+  assert.equal(revoked.status, 200);
+  assert.equal(revoked.body.sesiones_cerradas, 1);
+  await condenadaCerrada;
+  assert.equal((await call('mem.test', 'GET', '/whoami', newToken)).status, 401, 'revocado: deja de servir al instante');
+  assert.equal((await call('kb.test', 'GET', '/whoami', newToken)).status, 401, 'y en las dos memorias');
+  assert.equal((await call('mem.test', 'GET', '/whoami', made.body.token)).body.dev, 'ana');
+  assert.equal(vivaCerrada, false, 'la conexion de otro token no se corta');
+  viva.destroy();
+
+  const after = await panel('GET', '/api/admin/users/ana/tokens', ADM);
+  assert.equal(after.body.tokens.length, 2, 'el revocado queda como historial');
+  assert.ok(after.body.tokens.find((t) => t.tid === original).revokedAt);
+  assert.equal((await panel('DELETE', `/api/admin/tokens/${original}`, ADM)).status, 200, 'revocar dos veces no falla');
+  assert.equal((await panel('DELETE', '/api/admin/tokens/t_inexistente', ADM)).status, 404);
+  assert.equal((await panel('GET', '/api/admin/tokens', ENVU)).status, 403, 'solo un admin ve los de todos');
+  assert.ok((await panel('GET', '/api/admin/tokens', ADM)).body.tokens.some((t) => t.userId === 'ana'));
+  const list = (await panel('GET', '/api/admin/users', ADM)).body.users.find((u) => u.id === 'ana');
+  assert.equal(list.tokenCount, 1);
+  assert.ok(list.lastUsedAt);
+  newToken = made.body.token;
+});
+
+test('TOKENS de Coolify: se ven, no se revocan aqui, y la persona puede tener tokens del portal', async () => {
+  const l = await panel('GET', '/api/admin/users/envuser/tokens', ADM);
+  assert.deepEqual(l.body.tokens.map((t) => [t.origin, t.managed]), [['env', false]]);
+  assert.equal((await panel('DELETE', '/api/admin/tokens/env:envuser', ADM)).status, 409);
+  assert.equal((await panel('DELETE', '/api/admin/tokens/admins:adm', ADM)).status, 409);
+  const made = await panel('POST', '/api/admin/users/envuser/tokens', ADM, { label: 'Portal' });
+  assert.equal(made.status, 201);
+  assert.equal((await call('mem.test', 'GET', '/whoami', made.body.token)).body.role, 'miembro');
+  assert.equal((await call('mem.test', 'GET', '/whoami', ENVU)).body.dev, 'envuser', 'el de Coolify sigue');
+  assert.equal((await panel('POST', '/api/admin/users/envuser/tokens/revoke-all', ADM)).body.revocados, 1);
+  assert.equal((await call('mem.test', 'GET', '/whoami', made.body.token)).status, 401);
+});
+
+test('MIGRAR al portal: la persona de ACCESS_DEVS pasa a gestionarse aqui con el mismo token', async () => {
+  assert.equal((await panel('POST', '/api/admin/users/adm/adopt', ADM)).status, 409, 'el admin de emergencia no se migra');
+  assert.equal((await panel('PATCH', '/api/admin/users/mem', ADM, { role: 'lectura' })).status, 409, 'antes: solo en Coolify');
+  assert.equal((await panel('POST', '/api/admin/users/mem/adopt', ADM)).status, 200);
+  assert.equal((await call('mem.test', 'GET', '/whoami', MEM)).body.dev, 'mem', 'el mismo token sigue valiendo');
+  const r = await panel('PATCH', '/api/admin/users/mem', ADM, { role: 'miembro', spaces: ['int-frutal'] });
+  assert.equal(r.status, 200, 'despues: editable desde el portal');
+  assert.equal((await panel('POST', '/api/admin/users/mem/adopt', ADM)).status, 409, 'ya migrada');
 });
 
 test('BAJA: inmediata en las dos memorias; y protecciones contra dejarte fuera', async () => {
@@ -199,7 +269,7 @@ test('cuerpos invalidos y enormes se rechazan', async () => {
 
 test('queda registro de auditoria de cada accion administrativa, sin tokens', () => {
   const acts = logs.filter((l) => l.ev === 'admin_action');
-  for (const a of ['alta', 'cambio', 'rotar_token', 'baja', 'denegado']) assert.ok(acts.some((l) => l.action === a), a);
+  for (const a of ['alta', 'cambio', 'crear_token', 'revocar_token', 'revocar_todos', 'migrar_al_portal', 'baja', 'denegado']) assert.ok(acts.some((l) => l.action === a), a);
   assert.equal(JSON.stringify(logs).includes(newToken), false);
   assert.equal(acts.every((l) => l.by), true);
 });
