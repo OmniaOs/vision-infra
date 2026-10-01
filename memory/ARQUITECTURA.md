@@ -121,7 +121,7 @@ del repo; escritura → `sync` → GitHub; el proyecto sobrevive a un redeploy.
 - [ ] **Reescribir `EMPEZAR.md` y `ADOPCION.md`** del framework (hoy llevan solo un aviso; el túnel sigue vigente solo para LiteLLM `:4000` y Metrics `:4320`).
 - [ ] **Dar de alta a los demás devs.**
 - [ ] **Limpieza del método anterior:** túnel SSH y `visiontunnel`, Vaultwarden (`vault/`), `memory/setup/windows.ps1`, `memory/tunnel.sh`, variables `OMNIA_MEMORY_SSH_*`, `OMNIA_KNOWLEDGE_BASICAUTH_B64`, spec `self-service-memory-tunnel-onboarding`. Solo tras una ventana de convivencia.
-- [ ] Decidir si el gateway bloquea `delete_all_memories` y si limita namespaces por dev.
+- [ ] **Permisos y separación de espacios** (decidido, sin construir): ver [`PERMISOS.md`](PERMISOS.md). **Carga masiva pausada** hasta construirlo.
 - [ ] Probar escrituras simultáneas a la misma nota de Basic Memory (sigue sin verificar).
 - [ ] Endurecimiento opcional: firewall de Alma para aceptar `knowledge.omniaos.ai` solo desde el servidor de Mem0.
 
