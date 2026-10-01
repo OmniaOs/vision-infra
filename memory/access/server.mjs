@@ -19,6 +19,7 @@ import path from 'node:path';
 import { createStore, storeFromLegacy, hashToken } from './users.mjs';
 import { checkKbRpc, checkMem0Connect, checkMem0Rpc, parseRpc, spaceFromMem0 } from './policy.mjs';
 import { createPanelApi } from './panel.mjs';
+import { createAuth } from './auth.mjs';
 
 export { hashToken };
 
@@ -63,7 +64,7 @@ function readBody(req, limit = BODY_LIMIT) {
 export function createGateway({
   devs, store, routes, enforce = false, rateLimitPerMin = 1200,
   setupDir = path.join(HERE, 'setup'), panelDir = path.join(HERE, 'panel'), memoryDomain, failedAuthPerMin = 30,
-  log = () => {},
+  portalFile, secureCookie = true, authOptions = {}, log = () => {},
 }) {
   const users = store || storeFromLegacy(devs || new Map());
   const setupFiles = { '/setup': 'connect.ps1', '/setup.sh': 'connect.sh' };
@@ -104,8 +105,11 @@ export function createGateway({
     }
   }
 
+  const auth = createAuth({ file: portalFile, secureCookie, ...authOptions });
   const panelApi = createPanelApi({
-    store: users, closeSessions, log, memoryDomain: memoryDomain || (routes.find((r) => r.name === 'mem0')?.hosts[0]) || 'memory.omniaos.ai',
+    store: users, auth, closeSessions, log,
+    memoryDomain: memoryDomain || (routes.find((r) => r.name === 'mem0')?.hosts[0]) || 'memory.omniaos.ai',
+    panelDomain: routes.find((r) => r.name === 'panel')?.hosts[0] || 'memorypanel.omniaos.ai',
   });
 
   const server = http.createServer(async (req, res) => {
@@ -152,6 +156,37 @@ export function createGateway({
     }
 
     const ip = ipOf(req);
+
+    if (route.name === 'panel') {
+      for (const [k, v] of Object.entries(PANEL_HEADERS)) res.setHeader(k, v);
+      if (!pathname.startsWith('/api/')) return reply(res, 404, { error: 'not_found' });
+      // Entrada y canje de invitacion: sin sesion, con limite por origen.
+      if (req.method === 'POST' && (pathname === '/api/auth/login' || pathname === '/api/auth/accept-invite')) {
+        if (failedTooMuch(ip)) { pol = 'demasiados_intentos'; res.setHeader('retry-after', '60'); return reply(res, 429, { error: 'too_many_requests' }); }
+        return panelApi.handlePublic(req, res, url, ip, noteFail);
+      }
+      // Persona: sesion por cookie (navegador) o Bearer (automatizacion desde terminal).
+      let actor = null; let ctx = { via: 'cookie' };
+      const bm = /^Bearer\s+(\S+)$/i.exec(req.headers.authorization || '');
+      if (bm) {
+        actor = users.lookup(hashToken(bm[1]));
+        ctx = { via: 'bearer' };
+      } else {
+        const s = auth.session(req.headers.cookie);
+        if (s) { actor = users.byId(s.id); ctx = { via: 'cookie', session: s }; if (!actor) auth.logout(s.key); }
+      }
+      if (!actor) {
+        if (bm) {
+          if (failedTooMuch(ip)) { pol = 'demasiados_intentos'; res.setHeader('retry-after', '60'); return reply(res, 429, { error: 'too_many_requests' }); }
+          noteFail(ip);
+        }
+        return reply(res, 401, { error: 'unauthorized' });
+      }
+      dev = actor.id;
+      if (!rateOk(dev)) { pol = 'rate_limit'; res.setHeader('retry-after', '60'); return reply(res, 429, { error: 'too_many_requests' }); }
+      return panelApi.handle(req, res, url, actor, ctx);
+    }
+
     const m = /^Bearer\s+(\S+)$/i.exec(req.headers.authorization || '');
     const user = (m && users.lookup(hashToken(m[1]))) || null;
     if (!user) {
@@ -167,12 +202,6 @@ export function createGateway({
 
     if (pathname === '/whoami') return reply(res, 200, { dev, route: route.name, role: user.role });
     if (!rateOk(dev)) { pol = 'rate_limit'; res.setHeader('retry-after', '60'); return reply(res, 429, { error: 'too_many_requests' }); }
-
-    if (route.name === 'panel') {
-      for (const [k, v] of Object.entries(PANEL_HEADERS)) res.setHeader(k, v);
-      if (!pathname.startsWith('/api/')) return reply(res, 404, { error: 'not_found' });
-      return panelApi.handle(req, res, url, user);
-    }
 
     /** Aplica un veredicto de la politica. Devuelve true si la peticion sigue. */
     const decide = (r) => {
@@ -347,6 +376,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     if (!r.upstreamAuth) console.error(`AVISO: la ruta ${r.name} no inyecta credenciales al backend.`);
   }
   const port = Number(process.env.PORT || 8080);
-  createGateway({ store, routes, enforce, log: (e) => console.log(JSON.stringify(e)) })
+  createGateway({ store, routes, enforce, portalFile: process.env.ACCESS_PORTAL_FILE, log: (e) => console.log(JSON.stringify(e)) })
     .listen(port, () => console.error(`access gateway en :${port} (${store.size} usuarios)`));
 }

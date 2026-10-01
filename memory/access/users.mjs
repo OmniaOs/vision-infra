@@ -104,6 +104,7 @@ export function createStore({ envText = '', adminsText = '', file, log = () => {
 
   return {
     lookup(hash) { refresh(); return byHash.get(hash) || null; },
+    byId(id) { refresh(); for (const u of byHash.values()) if (u.id === id) return u; return null; },
     all() { refresh(); return [...byHash.values()]; },
     get size() { return byHash.size; },
     get writable() { return Boolean(file); },
@@ -115,5 +116,5 @@ export function createStore({ envText = '', adminsText = '', file, log = () => {
 /** Compatibilidad: un Map(hash -> id) antiguo se trata como admins (sin restricciones). */
 export function storeFromLegacy(devs) {
   const m = new Map([...devs].map(([hash, id]) => [hash, { id, hash, role: 'admin', spaces: [], active: true }]));
-  return { lookup: (h) => m.get(h) || null, all: () => [...m.values()], get size() { return m.size; }, writable: false, refresh() {} };
+  return { lookup: (h) => m.get(h) || null, byId: (id) => [...m.values()].find((u) => u.id === id) || null, all: () => [...m.values()], get size() { return m.size; }, writable: false, refresh() {} };
 }

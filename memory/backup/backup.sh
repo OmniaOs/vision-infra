@@ -59,7 +59,9 @@ run_once() {
   sqlite_copy "$MEM0_HOME_DIR/history.db" "$work/sqlite/history.db"
 
   # 2b) Usuarios del panel (solo hashes, nunca tokens). Si no hay archivo todavia, se omite.
-  if [ -f "${ACCESS_DIR:-/accessdata}/users.json" ]; then cp "${ACCESS_DIR:-/accessdata}/users.json" "$work/users.json"; fi
+  for f in users.json portal.json; do
+    if [ -f "${ACCESS_DIR:-/accessdata}/$f" ]; then cp "${ACCESS_DIR:-/accessdata}/$f" "$work/$f"; fi
+  done
 
   # 3) Manifiesto, empaquetado y cifrado
   { echo "creado=$stamp"; echo "colecciones=$ncol"; ls -l "$work/qdrant" "$work/sqlite" | sed 's/^/  /'; } > "$work/MANIFEST.txt"

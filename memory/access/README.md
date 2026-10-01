@@ -48,20 +48,40 @@ Revisar la auditoría en los logs del servicio `access`:
 docker logs <contenedor-access> 2>&1 | grep would_deny | head
 ```
 
-## Panel de administración (API construida; la pantalla falta)
+## Portal (acceso por usuario y contraseña; API construida, la pantalla falta)
 
 `memorypanel.omniaos.ai` lo sirve este mismo gateway (sin servidor nuevo). Para activarlo:
 
 1. **Coolify → `memory-mem0` → Domains del servicio `access`:** añade `https://memorypanel.omniaos.ai:8080` a los dos que ya hay.
 2. Redeploy de `memory-mem0` (crea el volumen `access_data` donde vive el archivo de usuarios).
 
-API (token de cada persona como `Authorization: Bearer`; solo `admin` toca `/api/admin/*`):
+**El portal y el MCP usan credenciales distintas.** El token (`omnia_...`) es solo para el MCP; el navegador entra con
+usuario y contraseña. Un token robado no abre el portal, ni al revés.
+
+- **Primer acceso por invitación:** el alta (o `POST /api/admin/users/<id>/invite`) devuelve un enlace de un solo uso, 24 h,
+  tipo `https://memorypanel.omniaos.ai/#invitacion=...`. La persona **elige su contraseña** (mínimo 12 caracteres); nadie más
+  la conoce. Un enlace nuevo sustituye al anterior y sirve también para **restablecer una contraseña**.
+- Contraseñas con `scrypt` y sal propia; sesión por cookie `HttpOnly` + `Secure` + `SameSite=Strict`, caduca a las 4 h sin
+  actividad y a las 12 h en total. Se guarda solo el hash de la sesión, y vive en memoria: un redeploy pide volver a entrar.
+- **Cada petición con cookie relee a la persona:** un cambio de rol o una baja se aplican al instante, sin volver a entrar.
+- Toda escritura con cookie exige el mismo origen y una marca CSRF propia de la sesión.
+- **5 fallos de contraseña bloquean 15 minutos** esa combinación origen+usuario (y 30 el usuario en general). Nunca bloquea
+  sesiones ya abiertas ni a otras personas.
+- Cada persona puede cambiar su contraseña (cierra sus otras sesiones) y **rotar su propio token** del MCP si es del archivo.
+- Las personas de `ACCESS_DEVS` y `ACCESS_ADMINS` (Coolify) también reciben invitación al portal.
+- **Pendiente:** segundo factor (TOTP). Se decidió empezar solo con contraseña.
+- **Primer admin:** pon tu hash en `ACCESS_ADMINS` de Coolify y pide tu propia invitación con tu token de MCP:
+  `curl -X POST -H "Authorization: Bearer $OMNIA_MEMORY_TOKEN" https://memorypanel.omniaos.ai/api/admin/users/<tu-id>/invite`.
+
+API (cookie de sesión, o el token de la persona como `Authorization: Bearer` para automatizar desde la terminal; solo `admin` toca `/api/admin/*`):
 
 | Acción | Llamada |
 |---|---|
-| Quién soy | `GET /api/me` |
+| Entrar / canjear invitación | `POST /api/auth/login` · `POST /api/auth/accept-invite` |
+| Quién soy, salir, cambiar contraseña, rotar mi token | `GET /api/me` · `POST /api/auth/logout` · `/api/auth/password` · `/api/me/rotate-token` |
 | Listar personas | `GET /api/admin/users` (sin hashes ni tokens) |
-| **Alta** | `POST /api/admin/users` `{id, role, spaces}` → devuelve el token **una vez** y el comando de la persona |
+| **Alta** | `POST /api/admin/users` `{id, role, spaces}` → devuelve **una vez** el token del MCP, su comando y la invitación al portal |
+| Invitación / restablecer contraseña | `POST /api/admin/users/<id>/invite` |
 | Cambiar rol o espacios | `PATCH /api/admin/users/<id>`; corta sus sesiones abiertas |
 | Rotar token | `POST /api/admin/users/<id>/rotate`; el anterior deja de servir |
 | **Baja** | `DELETE /api/admin/users/<id>`; inmediata en las dos memorias |
@@ -70,7 +90,7 @@ API (token de cada persona como `Authorization: Bearer`; solo `admin` toca `/api
 - Las personas de `ACCESS_DEVS` y `ACCESS_ADMINS` (Coolify) se ven pero **no se editan aquí**. `ACCESS_ADMINS` queda como acceso de emergencia.
 - No puedes darte de baja ni quitarte el rol de admin a ti mismo.
 - Cada acción administrativa queda en el log (`ev: admin_action`, con quién y a quién; nunca el token).
-- El respaldo cifrado de Mem0 incluye `users.json` (solo hashes).
+- El respaldo cifrado de Mem0 incluye `users.json` y `portal.json` (solo hashes).
 - Las páginas se sirven con una política de contenido estricta (sin scripts en línea) y los tokens inválidos se frenan por origen sin afectar nunca a un token válido.
 
 ## Dar de alta a un dev (admin, ~1 minuto)
@@ -134,5 +154,5 @@ token es global de la máquina; el slug va en el `.mcp.json` de cada repo.
 ## Desarrollo
 
 ```bash
-node --test memory/access        # 45 pruebas: auth, allowlist, credenciales, SSE, roles, espacios, fugas, auditoría
+node --test memory/access        # 59 pruebas: auth, allowlist, credenciales, SSE, roles, espacios, fugas, auditoría
 ```

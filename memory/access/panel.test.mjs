@@ -72,7 +72,7 @@ test('las paginas del panel son publicas, con cabeceras estrictas, y nada mas se
   assert.doesNotMatch(r.headers['content-security-policy'], /unsafe-inline/);
   assert.equal(r.headers['x-frame-options'], 'DENY');
   assert.equal((await panel('GET', '/app.js', null)).status, 200);
-  assert.equal((await panel('GET', '/../server.mjs', null)).status, 401, 'nada fuera de la lista cerrada');
+  assert.equal((await panel('GET', '/../server.mjs', null)).status, 404, 'nada fuera de la lista cerrada');
   assert.equal((await panel('GET', '/policy.mjs', ADM)).status, 404);
 });
 
@@ -80,7 +80,7 @@ test('la API exige token y el rol correcto', async () => {
   assert.equal((await panel('GET', '/api/me', null)).status, 401);
   assert.equal((await panel('GET', '/api/me', 'omnia_falso')).status, 401);
   const me = await panel('GET', '/api/me', ENVU);
-  assert.deepEqual(me.body, { id: 'envuser', role: 'miembro', spaces: ['int-frutal'] });
+  assert.deepEqual(me.body, { id: 'envuser', role: 'miembro', spaces: ['int-frutal'], via: 'bearer', portal: false });
   assert.equal((await panel('GET', '/api/admin/users', ENVU)).status, 403, 'un miembro no administra');
   assert.equal((await panel('POST', '/api/admin/users', ENVU, { id: 'x', role: 'admin' })).status, 403);
 });

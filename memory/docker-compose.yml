@@ -88,6 +88,8 @@ services:
       - ACCESS_ENFORCE=${ACCESS_ENFORCE:-}
       # Personas dadas de alta desde el panel (altas y bajas sin redeploy). Vive en un volumen.
       - ACCESS_USERS_FILE=/data/users.json
+      # Contrasenas (scrypt), invitaciones y sesiones del portal: solo hashes.
+      - ACCESS_PORTAL_FILE=/data/portal.json
       - MEM0_UPSTREAM=http://openmemory-mcp:8765
       - OPENMEMORY_API_KEY=${OPENMEMORY_API_KEY}
       # Basic Memory vive en otro VPS: se alcanza por su dominio de origen con
