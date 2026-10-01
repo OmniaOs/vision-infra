@@ -1,8 +1,17 @@
-# Omnia memory access gateway + panel — Node nativo, sin dependencias.
+# Omnia memory access gateway + portal.
+# Etapa 1: compila el portal (React + Vite). Etapa 2: el gateway, Node nativo sin dependencias,
+# que sirve ese build desde ./panel.
+FROM node:22-alpine AS portal
+WORKDIR /portal
+COPY portal/package.json portal/package-lock.json ./
+RUN npm ci
+COPY portal ./
+RUN npm run build
+
 FROM node:22-alpine
 WORKDIR /app
-COPY server.mjs policy.mjs users.mjs panel.mjs ./
-COPY panel ./panel
+COPY server.mjs policy.mjs users.mjs panel.mjs auth.mjs ./
+COPY --from=portal /portal/dist ./panel
 COPY setup ./setup
 # Carpeta de datos (archivo de usuarios del panel). Se crea con el dueno correcto para que un
 # volumen nuevo herede el permiso de escritura de `node`.

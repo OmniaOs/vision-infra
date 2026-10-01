@@ -48,7 +48,14 @@ Revisar la auditoría en los logs del servicio `access`:
 docker logs <contenedor-access> 2>&1 | grep would_deny | head
 ```
 
-## Portal (acceso por usuario y contraseña; API construida, la pantalla falta)
+## Portal (acceso por usuario y contraseña)
+
+**Pantallas** (`portal/`, React + Vite + Tailwind + shadcn/ui + TanStack Table/Query + Framer Motion): entrada,
+canje de invitación, Personas (tabla con filtros, altas, cambios de rol/espacios, bajas, token e invitación nuevos)
+y Mi cuenta. Arquitectura por funcionalidad (`features/`) y piezas compartidas (`shared/`), nombres en kebab-case.
+El `Dockerfile` compila el portal y el gateway lo sirve desde `panel/` (rutas sin extensión → `index.html`,
+CSP con nonce por respuesta). Desarrollo: `cd portal && npm run dev` (proxy a un gateway local en :18100).
+Pendiente: Notas (lector de Basic Memory) y Grafo de memoria (Mem0); aparecen como «Pronto» en el menú.
 
 `memorypanel.omniaos.ai` lo sirve este mismo gateway (sin servidor nuevo). Para activarlo:
 

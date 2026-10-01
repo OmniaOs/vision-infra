@@ -1,0 +1,16 @@
+import { BookOpenText, Network, UserRound, UsersRound, type LucideIcon } from 'lucide-react'
+
+export interface NavigationItem {
+  label: string
+  icon: LucideIcon
+  /** Ruta de la pagina. Sin ruta = aun no construida. */
+  to?: string
+  adminOnly?: boolean
+}
+
+export const NAVIGATION_ITEMS: NavigationItem[] = [
+  { label: 'Personas', icon: UsersRound, to: '/people', adminOnly: true },
+  { label: 'Mi cuenta', icon: UserRound, to: '/account' },
+  { label: 'Notas', icon: BookOpenText },
+  { label: 'Grafo de memoria', icon: Network },
+]

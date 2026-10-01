@@ -1,0 +1,90 @@
+@import '@fontsource-variable/schibsted-grotesk';
+@import '@fontsource-variable/jetbrains-mono';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Tinta y senal: fondo azul-negro con sesgo teal, un acento teal (Mem0) y un ambar (Basic Memory). */
+@layer base {
+  :root {
+    --background: 180 22% 97%;
+    --foreground: 200 35% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 200 35% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 200 35% 11%;
+    --primary: 174 75% 26%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 180 18% 92%;
+    --secondary-foreground: 200 35% 14%;
+    --muted: 180 18% 93%;
+    --muted-foreground: 200 14% 38%;
+    --accent: 174 40% 90%;
+    --accent-foreground: 174 75% 18%;
+    --destructive: 0 72% 46%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 190 16% 85%;
+    --input: 190 16% 82%;
+    --ring: 174 75% 30%;
+    --amber: 30 90% 40%;
+    --amber-foreground: 0 0% 100%;
+    --success: 152 60% 30%;
+    --success-foreground: 0 0% 100%;
+    --radius: 0.75rem;
+    color-scheme: light;
+  }
+
+  .dark {
+    --background: 200 30% 6%;
+    --foreground: 180 15% 92%;
+    --card: 200 26% 9%;
+    --card-foreground: 180 15% 92%;
+    --popover: 200 28% 8%;
+    --popover-foreground: 180 15% 92%;
+    --primary: 172 66% 50%;
+    --primary-foreground: 200 40% 6%;
+    --secondary: 200 20% 14%;
+    --secondary-foreground: 180 15% 92%;
+    --muted: 200 18% 13%;
+    --muted-foreground: 190 10% 64%;
+    --accent: 200 24% 17%;
+    --accent-foreground: 172 66% 70%;
+    --destructive: 0 70% 58%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 200 16% 17%;
+    --input: 200 16% 21%;
+    --ring: 172 66% 50%;
+    --amber: 33 92% 58%;
+    --amber-foreground: 200 40% 8%;
+    --success: 152 60% 48%;
+    --success-foreground: 200 40% 8%;
+    color-scheme: dark;
+  }
+
+  * { @apply border-border; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    font-feature-settings: 'ss01', 'cv11';
+    text-rendering: optimizeLegibility;
+  }
+  ::selection { background: hsl(var(--primary) / 0.28); }
+  h1, h2, h3 { text-wrap: balance; letter-spacing: -0.015em; }
+  :focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+}
+
+@layer utilities {
+  .tabular { font-variant-numeric: tabular-nums; }
+  /* Velo de puntos muy tenue para dar textura a los fondos sin distraer. */
+  .bg-dot-grid {
+    background-image: radial-gradient(hsl(var(--foreground) / 0.07) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+  .glow-primary { box-shadow: 0 0 0 1px hsl(var(--primary) / 0.25), 0 8px 40px -12px hsl(var(--primary) / 0.45); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}

@@ -14,6 +14,7 @@
 import http from 'node:http';
 import https from 'node:https';
 import { readFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { createStore, storeFromLegacy, hashToken } from './users.mjs';
@@ -35,14 +36,17 @@ const DROP = new Set([
 
 const BODY_LIMIT = 256 * 1024;
 
-// Paginas del panel: lista cerrada, nada se sirve fuera de ella.
-const PANEL_FILES = {
-  '/': ['index.html', 'text/html; charset=utf-8'], '/index.html': ['index.html', 'text/html; charset=utf-8'],
-  '/app.js': ['app.js', 'text/javascript; charset=utf-8'], '/app.css': ['app.css', 'text/css; charset=utf-8'],
+// Portal: el build de Vite (panel/). Se sirve con una busqueda segura (nada fuera de panel/) y las
+// rutas sin extension caen en index.html (la app navega en el navegador).
+const PANEL_TYPES = {
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
+  '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json; charset=utf-8',
 };
 // Sin scripts ni estilos en linea: lo que un cliente escriba en una nota nunca puede ejecutarse.
+// Los estilos que Radix inyecta llevan el nonce de cada respuesta (solo en la pagina de entrada).
+const PANEL_BASE_CSP = "default-src 'none'; script-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 const PANEL_HEADERS = {
-  'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  'content-security-policy': `${PANEL_BASE_CSP}; style-src 'self'`,
   'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'x-frame-options': 'DENY', 'cache-control': 'no-store',
 };
 const ipOf = (req) => String(req.headers['x-forwarded-for'] || '').split(',').pop().trim() || req.socket.remoteAddress || '?';
@@ -68,6 +72,34 @@ export function createGateway({
 }) {
   const users = store || storeFromLegacy(devs || new Map());
   const setupFiles = { '/setup': 'connect.ps1', '/setup.sh': 'connect.sh' };
+
+  const panelRoot = path.resolve(panelDir) + path.sep;
+  function servePanelFile(res, pathname) {
+    try {
+      let rel;
+      try { rel = decodeURIComponent(pathname); } catch { return reply(res, 404, { error: 'not_found' }); }
+      if (rel.includes('\0')) return reply(res, 404, { error: 'not_found' });
+      const ext = path.extname(rel).toLowerCase();
+      if (ext && !PANEL_TYPES[ext]) return reply(res, 404, { error: 'not_found' });
+      // Sin extension = ruta de la app: se entrega la pagina de entrada.
+      const isPage = !ext || ext === '.html';
+      const file = path.resolve(panelDir, isPage ? 'index.html' : '.' + rel);
+      if (!file.startsWith(panelRoot)) return reply(res, 404, { error: 'not_found' });
+      let body = readFileSync(file);
+      const headers = { ...PANEL_HEADERS, 'content-type': PANEL_TYPES[isPage ? '.html' : ext] };
+      if (isPage) {
+        const nonce = randomBytes(16).toString('base64');
+        body = Buffer.from(body.toString('utf8').replaceAll('__CSP_NONCE__', nonce));
+        headers['content-security-policy'] = `${PANEL_BASE_CSP}; style-src 'self' 'nonce-${nonce}'`;
+      } else if (rel.startsWith('/assets/')) {
+        headers['cache-control'] = 'public, max-age=31536000, immutable'; // nombres con hash del contenido
+      }
+      res.writeHead(200, headers);
+      return res.end(body);
+    } catch {
+      return reply(res, 404, { error: 'not_found' });
+    }
+  }
   /** session_id -> { dev, kind, space, res } */
   const sessions = new Map();
   const hits = new Map(); // dev -> { windowStart, n }
@@ -144,15 +176,9 @@ export function createGateway({
     const route = routes.find((r) => r.hosts.includes(host));
     if (!route) return reply(res, 404, { error: 'not_found' });
 
-    // Paginas del panel: publicas (no llevan datos); todo lo demas exige token.
-    if (route.name === 'panel' && req.method === 'GET' && PANEL_FILES[pathname]) {
-      try {
-        const [file, type] = PANEL_FILES[pathname];
-        res.writeHead(200, { 'content-type': type, ...PANEL_HEADERS });
-        return res.end(readFileSync(path.join(panelDir, file)));
-      } catch {
-        return reply(res, 404, { error: 'not_found' });
-      }
+    // Portal: publico (no lleva datos); todo lo demas exige sesion o token.
+    if (route.name === 'panel' && req.method === 'GET' && !pathname.startsWith('/api/')) {
+      return servePanelFile(res, pathname);
     }
 
     const ip = ipOf(req);

@@ -3,7 +3,7 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createGateway, hashToken } from './server.mjs';
@@ -13,6 +13,13 @@ const ADM = 'omnia_adm_token_0123456789abcdef';
 const ENVU = 'omnia_env_token_0123456789abcdef';
 const MEM = 'omnia_mem_token_0123456789abcdef';
 const dir = mkdtempSync(path.join(tmpdir(), 'omnia-panel-'));
+// Un build de mentira del portal; `secreto.txt` queda FUERA de la carpeta publica.
+const panelDir = path.join(dir, 'panel');
+mkdirSync(path.join(panelDir, 'assets'), { recursive: true });
+writeFileSync(path.join(panelDir, 'index.html'), '<!doctype html><meta name="csp-nonce" content="__CSP_NONCE__"><div id="root"></div>');
+writeFileSync(path.join(panelDir, 'assets', 'index-abc123.js'), 'console.log(1)');
+writeFileSync(path.join(panelDir, 'favicon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
+writeFileSync(path.join(dir, 'secreto.txt'), 'no se sirve');
 
 let upstream, upPort, gw, port, logs;
 const listen = (s) => new Promise((r) => s.listen(0, '127.0.0.1', () => r(s.address().port)));
@@ -42,7 +49,7 @@ before(async () => {
       { name: 'knowledge', hosts: ['kb.test'], upstream: `http://127.0.0.1:${upPort}`, allow: ['/'] },
       { name: 'panel', hosts: ['panel.test'], upstream: '', allow: [] },
     ],
-    enforce: true, failedAuthPerMin: 10, log: (e) => logs.push(e),
+    panelDir, enforce: true, failedAuthPerMin: 10, log: (e) => logs.push(e),
   });
   port = await listen(gw);
 });
@@ -65,14 +72,40 @@ function call(host, method, p, token, body) {
 }
 const panel = (m, p, t, b) => call('panel.test', m, p, t, b);
 
-test('las paginas del panel son publicas, con cabeceras estrictas, y nada mas se sirve', async () => {
+test('el portal es publico, con cabeceras estrictas y nonce propio por respuesta', async () => {
   const r = await panel('GET', '/', null);
   assert.equal(r.status, 200);
-  assert.match(r.headers['content-security-policy'], /script-src 'self'/);
-  assert.doesNotMatch(r.headers['content-security-policy'], /unsafe-inline/);
+  const csp = r.headers['content-security-policy'];
+  assert.match(csp, /script-src 'self'/);
+  assert.match(csp, /font-src 'self'/);
+  assert.doesNotMatch(csp, /unsafe-inline|unsafe-eval/);
+  const nonce = /'nonce-([^']+)'/.exec(csp)[1];
+  assert.ok(r.text.includes(`content="${nonce}"`), 'el nonce de la cabecera es el de la pagina');
+  assert.ok(!r.text.includes('__CSP_NONCE__'));
+  const again = await panel('GET', '/', null);
+  assert.notEqual(/'nonce-([^']+)'/.exec(again.headers['content-security-policy'])[1], nonce, 'cambia en cada respuesta');
   assert.equal(r.headers['x-frame-options'], 'DENY');
-  assert.equal((await panel('GET', '/app.js', null)).status, 200);
-  assert.equal((await panel('GET', '/../server.mjs', null)).status, 404, 'nada fuera de la lista cerrada');
+  assert.equal(r.headers['cache-control'], 'no-store');
+});
+
+test('las rutas de la app caen en la pagina de entrada y los assets se sirven con cache', async () => {
+  const route = await panel('GET', '/people', null);
+  assert.equal(route.status, 200);
+  assert.match(route.headers['content-type'], /text\/html/);
+  const js = await panel('GET', '/assets/index-abc123.js', null);
+  assert.equal(js.status, 200);
+  assert.match(js.headers['content-type'], /javascript/);
+  assert.match(js.headers['cache-control'], /immutable/);
+  assert.equal((await panel('GET', '/favicon.svg', null)).status, 200);
+  assert.equal((await panel('GET', '/assets/no-existe.js', null)).status, 404);
+});
+
+test('el portal no sirve nada fuera de su carpeta', async () => {
+  for (const p of ['/../secreto.txt', '/%2e%2e/secreto.txt', '/assets/..%2f..%2fsecreto.txt', '/..%2fsecreto.txt', '/policy.mjs', '/server.mjs', '/users.json', '/assets/%00.js']) {
+    const r = await panel('GET', p, null);
+    assert.ok(!/no se sirve/.test(r.text), `${p} no debe filtrar el archivo`);
+    assert.ok(r.status === 404 || /text\/html/.test(r.headers['content-type']), `${p} -> ${r.status}`);
+  }
   assert.equal((await panel('GET', '/policy.mjs', ADM)).status, 404);
 });
 
