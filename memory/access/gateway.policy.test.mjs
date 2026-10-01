@@ -206,3 +206,13 @@ test('limite de peticiones por persona', async () => {
   for (let i = 0; i < 5; i++) codes.push((await postRpc(port, 'mem.test', '/mcp/messages/?session_id=nada0000', T.ana, tool('search_memory'))).status);
   assert.deepEqual(codes.slice(3), [429, 429]);
 });
+
+test('las sesiones de un admin tambien se pueden cortar (baja o cambio de rol)', async () => {
+  const { gw, port } = await gateway(true);
+  const a = await openSse(port, 'kb.test', '/mcp', T.adm);
+  const m = await openSse(port, 'mem.test', '/mcp/claude/sse/cualquier-cosa', T.adm);
+  assert.equal(gw.sessionCount(), 2);
+  const ended = [a, m].map((s) => new Promise((r) => { s.res.on('close', r); s.res.on('error', r); }));
+  assert.equal(gw.closeSessions('adm'), 2);
+  await Promise.all(ended);
+});

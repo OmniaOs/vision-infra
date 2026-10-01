@@ -1,7 +1,7 @@
 // node --test memory/access
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, utimesSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, utimesSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { hashToken, parseUsers, saveUsersFile, createStore } from './users.mjs';
@@ -66,4 +66,15 @@ test('store: un archivo roto no tumba el servicio ni cambia el estado', () => {
 
 test('saveUsersFile valida antes de escribir', () => {
   assert.throws(() => saveUsersFile(path.join(dir, 'd.json'), [{ id: 'x', hash: H('a'), role: 'dios', spaces: [] }]), /rol invalido/);
+});
+
+test('store: si el archivo desaparece no se reconstruye en cada consulta', () => {
+  const file = path.join(dir, 'e.json');
+  saveUsersFile(file, [{ id: 'ana', hash: H('t'), role: 'miembro', spaces: [] }]);
+  const logs = [];
+  const s = createStore({ envText: `luis:${H('l')}`, file, log: (e) => logs.push(e) });
+  rmSync(file);
+  for (let i = 1; i <= 5; i++) s.refresh(Date.now() + i * 2000);
+  assert.equal(logs.filter((l) => l.ev === 'usuarios_recargados').length, 1, 'una sola recarga');
+  assert.equal(s.lookup(H('l')).id, 'luis');
 });

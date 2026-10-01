@@ -32,22 +32,6 @@ const DROP = new Set([
 ]);
 
 const BODY_LIMIT = 256 * 1024;
-const DEV_LINE = /^[a-z0-9][a-z0-9._-]{0,31}:[0-9a-f]{64}$/;
-
-/** "ana:<sha256>,luis:<sha256>" -> Map(hash -> dev). Formato antiguo, se conserva por compatibilidad. */
-export function parseDevs(text) {
-  const devs = new Map();
-  for (const raw of String(text || '').split(/[\n,]+/)) {
-    const line = raw.trim();
-    if (!line || line.startsWith('#')) continue;
-    if (!DEV_LINE.test(line)) {
-      throw new Error(`ACCESS_DEVS: linea invalida (esperaba id:sha256hex): "${line.slice(0, 40)}"`);
-    }
-    const [id, hash] = line.split(':');
-    devs.set(hash, id);
-  }
-  return devs;
-}
 
 function readBody(req, limit = BODY_LIMIT) {
   return new Promise((resolve, reject) => {
@@ -151,13 +135,21 @@ export function createGateway({
 
     if (/%2f|%5c/i.test(pathname)) return reply(res, 404, { error: 'not_found' });
 
+    const isMem0 = route.name === 'mem0';
+    const track = (space) => (sid) => {
+      sessions.set(sid, {
+        dev, kind: route.name, space, res, userSnapshot: true, role: user.role, spacesKey: JSON.stringify(user.spaces),
+      });
+      res.on('close', () => sessions.delete(sid));
+    };
+
     // ----- admin: sin restricciones de politica, solo la lista de rutas -----
+    // Sus sesiones tambien se registran: una baja o un cambio de rol debe poder cortarlas.
     if (user.role === 'admin') {
       if (!route.allow.some((p) => pathname.startsWith(p))) return reply(res, 404, { error: 'not_found' });
-      return proxy(req, res, route, user, pathname + url.search, {});
+      const adminSse = req.method === 'GET' && (isMem0 ? /^\/mcp\/[a-z0-9_-]{1,32}\/sse\/[^/]+$/.test(pathname) : pathname === '/mcp');
+      return proxy(req, res, route, user, pathname + url.search, adminSse ? { onSession: track(null) } : {});
     }
-
-    const isMem0 = route.name === 'mem0';
 
     // ----- apertura de sesion SSE -----
     const sse = isMem0 ? /^\/mcp\/([a-z0-9_-]{1,32})\/sse\/([^/]+)$/.exec(pathname) : (pathname === '/mcp' ? [] : null);
@@ -167,14 +159,7 @@ export function createGateway({
         if (!decide(checkMem0Connect(user, sse[2]))) return;
         space = spaceFromMem0(sse[2]);
       }
-      return proxy(req, res, route, user, pathname + url.search, {
-        onSession: (sid) => {
-          sessions.set(sid, {
-            dev, kind: route.name, space, res, userSnapshot: true, role: user.role, spacesKey: JSON.stringify(user.spaces),
-          });
-          res.on('close', () => sessions.delete(sid));
-        },
-      });
+      return proxy(req, res, route, user, pathname + url.search, { onSession: track(space) });
     }
 
     // ----- mensajes de una sesion -----

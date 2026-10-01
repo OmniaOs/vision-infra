@@ -67,6 +67,8 @@ export function createStore({ envText = '', adminsText = '', file, log = () => {
         else for (const [h, v] of next) if (v.id === u.id) next.delete(h);
       }
       mtime = statSync(file).mtimeMs;
+    } else {
+      mtime = -1; // sin archivo: que refresh() no reconstruya cada segundo
     }
     for (const u of parseUsers(adminsText, { forceRole: 'admin' })) put(u);
     return next;

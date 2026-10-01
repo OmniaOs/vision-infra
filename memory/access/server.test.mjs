@@ -2,7 +2,10 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { createGateway, parseDevs, hashToken } from './server.mjs';
+import { createGateway, hashToken } from './server.mjs';
+
+/** Ayudante de prueba: "id:hash" -> Map(hash -> id) para el almacen de compatibilidad. */
+const parseDevs = (text) => new Map(String(text).split(',').map((l) => { const [id, h] = l.trim().split(':'); return [h, id]; }));
 
 const TOKEN = 'omnia_test_token_ana_0123456789abcdef';
 const seen = []; // lo que recibe el "backend"
@@ -117,10 +120,4 @@ test('revocar: sin la linea del dev, su token deja de servir en las dos rutas', 
   });
   revoked.close();
   assert.equal(status, 401);
-});
-
-test('ACCESS_DEVS mal formado falla al arrancar en vez de aceptar a nadie o a todos', () => {
-  assert.throws(() => parseDevs('ana:noeshash'), /linea invalida/);
-  assert.equal(parseDevs('').size, 0);
-  assert.equal(parseDevs(`ana:${hashToken('a')}\n# comentario\nluis:${hashToken('b')}`).size, 2);
 });
