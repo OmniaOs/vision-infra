@@ -74,7 +74,7 @@ services:
   # (hash en ACCESS_DEVS); reenvia solo /mcp/* de Mem0 e inyecta del lado
   # servidor las credenciales reales de cada backend.
   # Coolify -> Domains del servicio `access`:
-  #   https://memory.omniaos.ai:8080,https://kb.omniaos.ai:8080  (con esquema)
+  #   https://memory.omniaos.ai:8080,https://kb.omniaos.ai:8080,https://memorypanel.omniaos.ai:8080  (con esquema)
   access:
     build: ./access
     image: omnia/memory-access:latest
@@ -86,6 +86,8 @@ services:
       # Vacio = AUDITORIA: se registra lo que las politicas denegarian, sin bloquear.
       # Poner 1 solo cuando el registro salga limpio (ver memory/PERMISOS.md).
       - ACCESS_ENFORCE=${ACCESS_ENFORCE:-}
+      # Personas dadas de alta desde el panel (altas y bajas sin redeploy). Vive en un volumen.
+      - ACCESS_USERS_FILE=/data/users.json
       - MEM0_UPSTREAM=http://openmemory-mcp:8765
       - OPENMEMORY_API_KEY=${OPENMEMORY_API_KEY}
       # Basic Memory vive en otro VPS: se alcanza por su dominio de origen con
@@ -94,6 +96,8 @@ services:
       - KB_UPSTREAM_AUTH_B64=${KB_UPSTREAM_AUTH_B64}
     depends_on:
       - openmemory-mcp
+    volumes:
+      - access_data:/data
     expose:
       - "8080"
 
@@ -117,6 +121,7 @@ services:
     volumes:
       - openmemory_data:/data:ro
       - openmemory_mem0home:/mem0home:ro
+      - access_data:/accessdata:ro
       - backup_local:/backups
 
   hermes:
@@ -149,4 +154,5 @@ volumes:
   openmemory_data:
   openmemory_mem0home:
   backup_local:
+  access_data:
   hermes_state:

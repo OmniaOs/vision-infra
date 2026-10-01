@@ -101,7 +101,7 @@ Un token = una persona = un rol + una lista de espacios. Ejemplo de entrada futu
 | Paso | Estado |
 |---|---|
 | 1. Motor de roles y espacios en el gateway, con pruebas | **Construido y probado (33 pruebas); sin desplegar.** Incluye las cuatro fugas, sesiones por namespace, auditoría, cierre de sesiones, límite de peticiones y almacén de usuarios con archivo |
-| 2. Panel de altas y bajas (escribe el archivo de usuarios) | Pendiente |
+| 2. Panel de altas y bajas (escribe el archivo de usuarios) | **API construida y probada en contenedor real (45 pruebas); sin desplegar. Falta la pantalla** |
 | 3. Visor de notas y grafo | Pendiente |
 | 4. Reorganizar Basic Memory (un proyecto por espacio) y migrar nombres | Pendiente |
 | 5. Instancias de cliente de Basic Memory | Pendiente |

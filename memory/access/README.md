@@ -48,6 +48,31 @@ Revisar la auditoría en los logs del servicio `access`:
 docker logs <contenedor-access> 2>&1 | grep would_deny | head
 ```
 
+## Panel de administración (API construida; la pantalla falta)
+
+`memorypanel.omniaos.ai` lo sirve este mismo gateway (sin servidor nuevo). Para activarlo:
+
+1. **Coolify → `memory-mem0` → Domains del servicio `access`:** añade `https://memorypanel.omniaos.ai:8080` a los dos que ya hay.
+2. Redeploy de `memory-mem0` (crea el volumen `access_data` donde vive el archivo de usuarios).
+
+API (token de cada persona como `Authorization: Bearer`; solo `admin` toca `/api/admin/*`):
+
+| Acción | Llamada |
+|---|---|
+| Quién soy | `GET /api/me` |
+| Listar personas | `GET /api/admin/users` (sin hashes ni tokens) |
+| **Alta** | `POST /api/admin/users` `{id, role, spaces}` → devuelve el token **una vez** y el comando de la persona |
+| Cambiar rol o espacios | `PATCH /api/admin/users/<id>`; corta sus sesiones abiertas |
+| Rotar token | `POST /api/admin/users/<id>/rotate`; el anterior deja de servir |
+| **Baja** | `DELETE /api/admin/users/<id>`; inmediata en las dos memorias |
+
+- **Sin redeploy:** el cambio se escribe en `/data/users.json` y se aplica en el mismo instante. Las demás personas no notan nada.
+- Las personas de `ACCESS_DEVS` y `ACCESS_ADMINS` (Coolify) se ven pero **no se editan aquí**. `ACCESS_ADMINS` queda como acceso de emergencia.
+- No puedes darte de baja ni quitarte el rol de admin a ti mismo.
+- Cada acción administrativa queda en el log (`ev: admin_action`, con quién y a quién; nunca el token).
+- El respaldo cifrado de Mem0 incluye `users.json` (solo hashes).
+- Las páginas se sirven con una política de contenido estricta (sin scripts en línea) y los tokens inválidos se frenan por origen sin afectar nunca a un token válido.
+
 ## Dar de alta a un dev (admin, ~1 minuto)
 
 ```bash
@@ -109,5 +134,5 @@ token es global de la máquina; el slug va en el `.mcp.json` de cada repo.
 ## Desarrollo
 
 ```bash
-node --test memory/access        # 33 pruebas: auth, allowlist, credenciales, SSE, roles, espacios, fugas, auditoría
+node --test memory/access        # 45 pruebas: auth, allowlist, credenciales, SSE, roles, espacios, fugas, auditoría
 ```

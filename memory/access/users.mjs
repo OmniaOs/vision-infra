@@ -53,24 +53,24 @@ export function createStore({ envText = '', adminsText = '', file, log = () => {
 
   function build() {
     const next = new Map();
-    const put = (u) => {
+    const put = (u, origin) => {
       for (const [h, v] of next) if (v.id === u.id) next.delete(h);
-      next.set(u.hash, u);
+      next.set(u.hash, { ...u, origin });
     };
-    for (const u of parseUsers(envText)) put(u);
+    for (const u of parseUsers(envText)) put(u, 'env');
     if (file && existsSync(file)) {
       const data = JSON.parse(readFileSync(file, 'utf8'));
       for (const u of data.users || []) {
         const err = validateUser(u);
         if (err) throw new Error(`archivo de usuarios: ${u && u.id}: ${err}`);
-        if (u.active !== false) put({ ...u, active: true });
+        if (u.active !== false) put({ ...u, active: true }, 'file');
         else for (const [h, v] of next) if (v.id === u.id) next.delete(h);
       }
       mtime = statSync(file).mtimeMs;
     } else {
       mtime = -1; // sin archivo: que refresh() no reconstruya cada segundo
     }
-    for (const u of parseUsers(adminsText, { forceRole: 'admin' })) put(u);
+    for (const u of parseUsers(adminsText, { forceRole: 'admin' })) put(u, 'admins');
     return next;
   }
 
@@ -88,10 +88,26 @@ export function createStore({ envText = '', adminsText = '', file, log = () => {
     }
   }
 
+  /** Usuarios gestionados desde el panel (los del archivo), con su hash. */
+  function fileUsers() {
+    if (!file || !existsSync(file)) return [];
+    return (JSON.parse(readFileSync(file, 'utf8')).users || []).filter((u) => u.active !== false);
+  }
+
+  /** Reemplaza el archivo de usuarios y aplica el cambio al instante (sin redeploy). */
+  function setFileUsers(list) {
+    if (!file) throw new Error('sin_archivo_de_usuarios');
+    saveUsersFile(file, list);
+    byHash = build();
+    lastCheck = Date.now();
+  }
+
   return {
     lookup(hash) { refresh(); return byHash.get(hash) || null; },
     all() { refresh(); return [...byHash.values()]; },
     get size() { return byHash.size; },
+    get writable() { return Boolean(file); },
+    fileUsers, setFileUsers,
     refresh,
   };
 }
@@ -99,5 +115,5 @@ export function createStore({ envText = '', adminsText = '', file, log = () => {
 /** Compatibilidad: un Map(hash -> id) antiguo se trata como admins (sin restricciones). */
 export function storeFromLegacy(devs) {
   const m = new Map([...devs].map(([hash, id]) => [hash, { id, hash, role: 'admin', spaces: [], active: true }]));
-  return { lookup: (h) => m.get(h) || null, all: () => [...m.values()], get size() { return m.size; }, refresh() {} };
+  return { lookup: (h) => m.get(h) || null, all: () => [...m.values()], get size() { return m.size; }, writable: false, refresh() {} };
 }

@@ -121,7 +121,7 @@ del repo; escritura → `sync` → GitHub; el proyecto sobrevive a un redeploy.
 - [ ] **Reescribir `EMPEZAR.md` y `ADOPCION.md`** del framework (hoy llevan solo un aviso; el túnel sigue vigente solo para LiteLLM `:4000` y Metrics `:4320`).
 - [ ] **Dar de alta a los demás devs.**
 - [ ] **Limpieza del método anterior:** túnel SSH y `visiontunnel`, Vaultwarden (`vault/`), `memory/setup/windows.ps1`, `memory/tunnel.sh`, variables `OMNIA_MEMORY_SSH_*`, `OMNIA_KNOWLEDGE_BASICAUTH_B64`, spec `self-service-memory-tunnel-onboarding`. Solo tras una ventana de convivencia.
-- [ ] **Respaldo cifrado de Mem0** (construido y probado en local, sin activar): ver [`backup/README.md`](backup/README.md). Faltan el bucket de R2, el token y la clave de cifrado.
+- [ ] **Respaldo cifrado de Mem0** (construido y probado en local, sin activar): ver [`backup/README.md`](backup/README.md). **Bloqueado por acceso:** nadie del equipo tiene a mano el acceso a R2 para crear el bucket y el token (2026-10-01). Hasta entonces Mem0 sigue sin copia. Regla: no se hace nada destructivo (borrar namespaces, carga masiva) hasta que exista el primer respaldo.
 - [ ] **Permisos y separación de espacios** (decidido, sin construir): ver [`PERMISOS.md`](PERMISOS.md). **Carga masiva pausada** hasta construirlo.
 - [ ] Probar escrituras simultáneas a la misma nota de Basic Memory (sigue sin verificar).
 - [ ] Endurecimiento opcional: firewall de Alma para aceptar `knowledge.omniaos.ai` solo desde el servidor de Mem0.

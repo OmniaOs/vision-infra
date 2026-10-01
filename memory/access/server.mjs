@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { createStore, storeFromLegacy, hashToken } from './users.mjs';
 import { checkKbRpc, checkMem0Connect, checkMem0Rpc, parseRpc, spaceFromMem0 } from './policy.mjs';
+import { createPanelApi } from './panel.mjs';
 
 export { hashToken };
 
@@ -32,6 +33,18 @@ const DROP = new Set([
 ]);
 
 const BODY_LIMIT = 256 * 1024;
+
+// Paginas del panel: lista cerrada, nada se sirve fuera de ella.
+const PANEL_FILES = {
+  '/': ['index.html', 'text/html; charset=utf-8'], '/index.html': ['index.html', 'text/html; charset=utf-8'],
+  '/app.js': ['app.js', 'text/javascript; charset=utf-8'], '/app.css': ['app.css', 'text/css; charset=utf-8'],
+};
+// Sin scripts ni estilos en linea: lo que un cliente escriba en una nota nunca puede ejecutarse.
+const PANEL_HEADERS = {
+  'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'x-frame-options': 'DENY', 'cache-control': 'no-store',
+};
+const ipOf = (req) => String(req.headers['x-forwarded-for'] || '').split(',').pop().trim() || req.socket.remoteAddress || '?';
 
 function readBody(req, limit = BODY_LIMIT) {
   return new Promise((resolve, reject) => {
@@ -49,13 +62,15 @@ function readBody(req, limit = BODY_LIMIT) {
 
 export function createGateway({
   devs, store, routes, enforce = false, rateLimitPerMin = 1200,
-  setupDir = path.join(HERE, 'setup'), log = () => {},
+  setupDir = path.join(HERE, 'setup'), panelDir = path.join(HERE, 'panel'), memoryDomain, failedAuthPerMin = 30,
+  log = () => {},
 }) {
   const users = store || storeFromLegacy(devs || new Map());
   const setupFiles = { '/setup': 'connect.ps1', '/setup.sh': 'connect.sh' };
   /** session_id -> { dev, kind, space, res } */
   const sessions = new Map();
   const hits = new Map(); // dev -> { windowStart, n }
+  const fails = new Map(); // ip -> { windowStart, n }  (intentos con token invalido)
 
   function rateOk(dev) {
     const now = Date.now();
@@ -63,6 +78,13 @@ export function createGateway({
     if (!h || now - h.windowStart >= 60000) { hits.set(dev, { windowStart: now, n: 1 }); return true; }
     return ++h.n <= rateLimitPerMin;
   }
+
+  const failedTooMuch = (ip) => { const f = fails.get(ip); return Boolean(f) && Date.now() - f.windowStart < 60000 && f.n >= failedAuthPerMin; };
+  const noteFail = (ip) => {
+    const now = Date.now();
+    const f = fails.get(ip);
+    if (!f || now - f.windowStart >= 60000) fails.set(ip, { windowStart: now, n: 1 }); else f.n++;
+  };
 
   function closeSessions(devId) {
     let n = 0;
@@ -81,6 +103,10 @@ export function createGateway({
       }
     }
   }
+
+  const panelApi = createPanelApi({
+    store: users, closeSessions, log, memoryDomain: memoryDomain || (routes.find((r) => r.name === 'mem0')?.hosts[0]) || 'memory.omniaos.ai',
+  });
 
   const server = http.createServer(async (req, res) => {
     const t0 = Date.now();
@@ -114,9 +140,26 @@ export function createGateway({
     const route = routes.find((r) => r.hosts.includes(host));
     if (!route) return reply(res, 404, { error: 'not_found' });
 
+    // Paginas del panel: publicas (no llevan datos); todo lo demas exige token.
+    if (route.name === 'panel' && req.method === 'GET' && PANEL_FILES[pathname]) {
+      try {
+        const [file, type] = PANEL_FILES[pathname];
+        res.writeHead(200, { 'content-type': type, ...PANEL_HEADERS });
+        return res.end(readFileSync(path.join(panelDir, file)));
+      } catch {
+        return reply(res, 404, { error: 'not_found' });
+      }
+    }
+
+    const ip = ipOf(req);
     const m = /^Bearer\s+(\S+)$/i.exec(req.headers.authorization || '');
     const user = (m && users.lookup(hashToken(m[1]))) || null;
     if (!user) {
+      // El limite solo frena a quien manda tokens INVALIDOS: un token valido nunca se bloquea por los
+      // fallos de otros (misma oficina, mismo NAT). Los tokens de 256 bits no se adivinan; esto solo
+      // evita inundar el log y gastar CPU.
+      if (failedTooMuch(ip)) { pol = 'demasiados_intentos'; res.setHeader('retry-after', '60'); return reply(res, 429, { error: 'too_many_requests' }); }
+      noteFail(ip);
       res.setHeader('www-authenticate', 'Bearer');
       return reply(res, 401, { error: 'unauthorized' });
     }
@@ -124,6 +167,12 @@ export function createGateway({
 
     if (pathname === '/whoami') return reply(res, 200, { dev, route: route.name, role: user.role });
     if (!rateOk(dev)) { pol = 'rate_limit'; res.setHeader('retry-after', '60'); return reply(res, 429, { error: 'too_many_requests' }); }
+
+    if (route.name === 'panel') {
+      for (const [k, v] of Object.entries(PANEL_HEADERS)) res.setHeader(k, v);
+      if (!pathname.startsWith('/api/')) return reply(res, 404, { error: 'not_found' });
+      return panelApi.handle(req, res, url, user);
+    }
 
     /** Aplica un veredicto de la politica. Devuelve true si la peticion sigue. */
     const decide = (r) => {
@@ -272,6 +321,7 @@ export function routesFromEnv(env) {
       upstreamAuth: env.OPENMEMORY_API_KEY ? `Bearer ${env.OPENMEMORY_API_KEY}` : undefined,
       allow: ['/mcp/'], // nada de /api, /docs ni el resto de OpenMemory
     },
+    { name: 'panel', hosts: list(env.PANEL_HOSTS || 'memorypanel.omniaos.ai'), upstream: '', allow: [] },
     {
       name: 'knowledge',
       hosts: list(env.KB_HOSTS || 'kb.omniaos.ai'),
