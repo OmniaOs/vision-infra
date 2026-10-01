@@ -12,6 +12,6 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   { label: 'Personas', icon: UsersRound, to: '/people', adminOnly: true },
   { label: 'Tokens', icon: KeyRound, to: '/tokens' },
   { label: 'Mi cuenta', icon: UserRound, to: '/account' },
-  { label: 'Notas', icon: BookOpenText },
-  { label: 'Grafo de memoria', icon: Network },
+  { label: 'Notas', icon: BookOpenText, to: '/notes' },
+  { label: 'Grafo de memoria', icon: Network, to: '/memory-graph' },
 ]

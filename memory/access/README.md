@@ -119,6 +119,18 @@ instante las conexiones abiertas de ese token y deja funcionando los demás.
 - El «dispositivo» es el cliente que se conectó (su `User-Agent`) más la IP; no hay forma de nombrar el equipo físico.
 - Archivo `users.json` v2 (`users` + `tokens`); el formato anterior se migra solo al leerlo.
 
+## Notas y Grafo de memoria (solo lectura)
+
+- **Notas:** lee las notas de Basic Memory sin clonar nada (árbol por carpetas, buscador, markdown con etiquetas del encabezado).
+  El gateway las pide con **sus** credenciales (`viewer.mjs` + `mcp-client.mjs`) y solo muestra los proyectos cuyo nombre es un
+  espacio al que la persona tiene acceso. Un admin también ve proyectos aún sin nombre de espacio (p. ej. `projects`).
+- **Grafo de memoria:** las memorias de Mem0 de un espacio, agrupadas por categoría (nodos y enlaces). Usa la REST interna de
+  OpenMemory (`/api/v1/memories/?user_id=<espacio>`) con la red interna del gateway.
+- **Seguridad:** nada escribe; `project` lo fija el servidor; `memory://` en un identificador se rechaza; el markdown no admite
+  HTML en bruto, filtra enlaces (solo http/https/mailto) y no carga imágenes; React escapa el texto de las memorias.
+- **No verificado contra producción:** la forma exacta de la respuesta REST de OpenMemory (se leyó de forma tolerante). Si el
+  grafo sale vacío tras desplegar, revisar `GET /api/v1/memories/` desde dentro del contenedor.
+
 ## Dar de alta a un dev (admin, ~1 minuto)
 
 ```bash

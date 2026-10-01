@@ -7,6 +7,8 @@ import { RequireAdminRoute } from '@/features/authentication/components/require-
 import { RequireSessionRoute } from '@/features/authentication/components/require-session-route'
 import { ApplicationShell } from '@/features/application-shell/components/application-shell'
 import { NotFoundPage } from '@/features/application-shell/pages/not-found-page'
+import { MemoryGraphPage } from '@/features/memory-graph/pages/memory-graph-page'
+import { NotesPage } from '@/features/notes-explorer/pages/notes-page'
 import { TokenManagementPage } from '@/features/token-management/pages/token-management-page'
 import { UserManagementPage } from '@/features/user-management/pages/user-management-page'
 import { HomeRedirect } from './home-redirect'
@@ -21,6 +23,8 @@ export function AppRouter() {
           <Route element={<RequireSessionRoute />}>
             <Route element={<ApplicationShell />}>
               <Route index element={<HomeRedirect />} />
+              <Route path="/notes" element={<NotesPage />} />
+              <Route path="/memory-graph" element={<MemoryGraphPage />} />
               <Route path="/tokens" element={<TokenManagementPage />} />
               <Route path="/account" element={<AccountSettingsPage />} />
               <Route element={<RequireAdminRoute />}>

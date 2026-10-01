@@ -6,4 +6,9 @@ export const queryKeys = {
   tokens: ['tokens'] as const,
   myTokens: ['tokens', 'mine'] as const,
   allTokens: ['tokens', 'all'] as const,
+  noteProjects: ['notes', 'projects'] as const,
+  notes: (project: string) => ['notes', 'tree', project] as const,
+  note: (project: string, permalink: string) => ['notes', 'note', project, permalink] as const,
+  graphSpaces: ['graph', 'spaces'] as const,
+  memories: (space: string) => ['graph', 'memories', space] as const,
 }
