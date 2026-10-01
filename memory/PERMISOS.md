@@ -66,6 +66,14 @@ no un namespace propio.
 
 Los repos hoy usan nombres antiguos (`frutal`, `omniapos`, `weritas`...). Activar el bloqueo antes de migrar los dejaría sin memoria.
 
+### Alias de namespaces de Mem0 (sin migrar datos)
+
+Mem0 no renombra namespaces y volver a escribir las memorias las pasa otra vez por el extractor (puede alterarlas).
+En su lugar, `ACCESS_NAMESPACE_ALIASES=vision-infra=proy-vision-infra,frutal=int-frutal` hace que el gateway trate el
+namespace antiguo como ese espacio para los permisos y para el visor. Reglas: el destino debe ser `proy-`/`int-`/`cli-`;
+el nombre nuevo de un espacio con alias **no** se puede usar (abriría un namespace vacío y aparte); una configuración
+inválida impide arrancar. Los repos nuevos usan directamente el nombre con prefijo (skill `memory-setup`).
+
 ## Qué sigue sin resolverse (no lo doy por hecho)
 
 - **Respaldos de Mem0:** no hay copia automática; vive en volúmenes del servidor.
@@ -101,9 +109,9 @@ Un token = una persona = un rol + una lista de espacios. Ejemplo de entrada futu
 | Paso | Estado |
 |---|---|
 | 1. Motor de roles y espacios en el gateway, con pruebas | **Construido y probado (33 pruebas); sin desplegar.** Incluye las cuatro fugas, sesiones por namespace, auditoría, cierre de sesiones, límite de peticiones y almacén de usuarios con archivo |
-| 2. Panel de altas y bajas (escribe el archivo de usuarios) | **API y acceso por usuario/contraseña con invitación construidos y probados (59 pruebas); sin desplegar. Falta la pantalla** |
-| 3. Visor de notas y grafo | Pendiente |
-| 4. Reorganizar Basic Memory (un proyecto por espacio) y migrar nombres | Pendiente |
+| 2. Panel de altas y bajas | **Construido, probado y desplegado:** portal con usuario y contraseña, personas, tokens múltiples con último uso y revocación |
+| 3. Visor de notas y grafo | **Construido y probado:** Notas (Basic Memory) y Grafo de memoria (Mem0), solo lectura y por espacio. Falta confirmar el formato de la REST de OpenMemory en producción |
+| 4. Reorganizar Basic Memory y migrar nombres | **Hecho el 2026-10-02 (aditivo):** proyectos `global`, `int-frutal` y `proy-omniapos` creados y las 3 notas copiadas (las originales siguen en `projects`). Mem0 **sin mover datos**: `ACCESS_NAMESPACE_ALIASES` hace que `vision-infra` cuente como `proy-vision-infra` |
 | 5. Instancias de cliente de Basic Memory | Pendiente |
 | 6. Activar el bloqueo y cargar | Pendiente |
 

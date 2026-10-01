@@ -80,6 +80,12 @@ Ejecuta los pasos en orden. No omitas pasos. No reordenes pasos.
    agregarse a esta lista y a `memory/.memory.env.example` a la vez — no
    dejes que diverjan.
 5. El resultado es `slug`.
+6. **Nombre de espacio (altas nuevas).** Desde que existen roles y espacios (`memory/PERMISOS.md`), el namespace de un
+   repo **nuevo** lleva prefijo: `int-<cliente>` si el repo es parte de un cliente (el caso `-erpnext` del punto 3, o
+   `frutal-hr`, `weritas-...`), y `proy-<slug>` para cualquier otro. Ese es el valor que va en la URL (`.../sse/<namespace>`).
+   Un repo que **ya** tiene un slug antiguo en su `.mcp.json` no se renombra: el gateway lo trata como alias de su espacio
+   (`ACCESS_NAMESPACE_ALIASES`), así que sus memorias siguen donde están y no hay que migrar nada. Al comparar con lo
+   existente (Paso 4) usa el `slug` sin prefijo.
 
 ### Paso 4 — Leer el estado actual de `<projectRoot>/.mcp.json`
 

@@ -7,9 +7,35 @@
 export const SPACE_RE = /^(global|(?:proy|int|cli)-[a-z0-9]+(?:-[a-z0-9]+)*)$/;
 export const ROLES = ['admin', 'miembro', 'lectura', 'cliente'];
 
-/** Mem0: el espacio `global` vive en el namespace historico `omnia-global`. */
-export const mem0Namespace = (space) => (space === 'global' ? 'omnia-global' : space);
-export const spaceFromMem0 = (ns) => (ns === 'omnia-global' ? 'global' : SPACE_RE.test(ns) ? ns : null);
+// Mem0: el espacio `global` vive en el namespace historico `omnia-global`. Los namespaces que ya tenian datos con
+// un nombre antiguo (el slug de cada repo) se declaran como ALIAS de un espacio: el gateway los trata como ese
+// espacio para los permisos y no hace falta mover ni reescribir ninguna memoria.
+let toSpace = new Map(); // namespace antiguo -> espacio
+let toNamespace = new Map(); // espacio -> namespace antiguo
+
+/** Texto `antiguo=espacio,antiguo2=espacio2`. Lanza si algo no es valido (mejor no arrancar que abrir un hueco). */
+export function configureNamespaceAliases(text) {
+  const spaces = new Map(); const namespaces = new Map();
+  for (const raw of String(text || '').split(/[\n,]+/)) {
+    const entry = raw.trim();
+    if (!entry || entry.startsWith('#')) continue;
+    const [legacy, space, extra] = entry.split('=').map((x) => x.trim());
+    if (extra !== undefined || !/^[a-z0-9][a-z0-9_-]{0,31}$/.test(legacy || '')) throw new Error(`alias invalido: "${entry.slice(0, 40)}"`);
+    if (!SPACE_RE.test(space || '') || space === 'global') throw new Error(`alias invalido: ${legacy} -> ${space} (el destino debe ser un espacio proy-/int-/cli-)`);
+    if (legacy === 'omnia-global' || SPACE_RE.test(legacy)) throw new Error(`alias invalido: ${legacy} ya es un nombre de espacio`);
+    if (spaces.has(legacy) || namespaces.has(space)) throw new Error(`alias repetido: ${legacy} / ${space}`);
+    spaces.set(legacy, space); namespaces.set(space, legacy);
+  }
+  toSpace = spaces; toNamespace = namespaces;
+}
+
+export const mem0Namespace = (space) => (space === 'global' ? 'omnia-global' : toNamespace.get(space) ?? space);
+export const spaceFromMem0 = (ns) => {
+  if (ns === 'omnia-global') return 'global';
+  if (toSpace.has(ns)) return toSpace.get(ns);
+  // Un espacio con alias solo se alcanza por su nombre antiguo: usar el nuevo abriria un namespace vacio y aparte.
+  return SPACE_RE.test(ns) && !toNamespace.has(ns) ? ns : null;
+};
 /** Basic Memory: el proyecto se llama igual que el espacio. */
 export const spaceFromKbProject = (p) => (typeof p === 'string' && SPACE_RE.test(p) ? p : null);
 

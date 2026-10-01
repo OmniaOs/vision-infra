@@ -86,6 +86,8 @@ services:
       # Vacio = AUDITORIA: se registra lo que las politicas denegarian, sin bloquear.
       # Poner 1 solo cuando el registro salga limpio (ver memory/PERMISOS.md).
       - ACCESS_ENFORCE=${ACCESS_ENFORCE:-}
+      # Namespaces antiguos de Mem0 tratados como un espacio, sin mover datos: `vision-infra=proy-vision-infra,frutal=int-frutal`.
+      - ACCESS_NAMESPACE_ALIASES=${ACCESS_NAMESPACE_ALIASES:-}
       # Personas dadas de alta desde el panel (altas y bajas sin redeploy). Vive en un volumen.
       - ACCESS_USERS_FILE=/data/users.json
       # Contrasenas (scrypt), invitaciones y sesiones del portal: solo hashes.

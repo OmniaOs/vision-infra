@@ -18,7 +18,7 @@ import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { createStore, storeFromLegacy, hashToken } from './users.mjs';
-import { checkKbRpc, checkMem0Connect, checkMem0Rpc, parseRpc, spaceFromMem0 } from './policy.mjs';
+import { checkKbRpc, checkMem0Connect, checkMem0Rpc, configureNamespaceAliases, parseRpc, spaceFromMem0 } from './policy.mjs';
 import { createPanelApi } from './panel.mjs';
 import { createAuth } from './auth.mjs';
 import { createViewerApi } from './viewer.mjs';
@@ -400,6 +400,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     log: (e) => console.log(JSON.stringify({ t: new Date().toISOString(), ...e })),
   });
   if (store.size === 0) console.error('AVISO: no hay usuarios, todo pedido dara 401.');
+  configureNamespaceAliases(process.env.ACCESS_NAMESPACE_ALIASES); // lanza si hay un alias invalido
   const enforce = process.env.ACCESS_ENFORCE === '1';
   console.error(`politicas: ${enforce ? 'ACTIVAS (se bloquea)' : 'en AUDITORIA (solo se registra lo que se denegaria)'}`);
   const routes = routesFromEnv(process.env);
