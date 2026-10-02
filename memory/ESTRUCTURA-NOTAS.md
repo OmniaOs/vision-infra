@@ -25,7 +25,7 @@ Qué va en cada una:
 - `guias/`: explicaciones para aprender o conectar algo, de principio a fin.
 - `plantillas/`: los moldes de abajo.
 - `glosario/`: una nota por término propio de Omnia.
-- `arquitectura/`: cómo está hecho el producto y por qué.
+- `arquitectura/`: cómo está hecho el producto y por qué. Es la **única** carpeta que admite un segundo nivel, una subcarpeta por dominio del producto (`arquitectura/hub/`, `arquitectura/core/`…), para las specs por funcionalidad. Se crean al subir esas specs; no se inventan otras.
 - `decisiones/`: una nota por decisión (qué se decidió, alternativas, consecuencias).
 - `operacion/`: runbooks, es decir, cómo se opera y qué hacer cuando algo falla.
 - `incidentes/`: qué pasó, causa raíz y arreglo.
