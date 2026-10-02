@@ -1,4 +1,3 @@
-import { KeyRound } from 'lucide-react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { FadeIn } from '@/shared/motion/fade-in'
 import { AuthenticationLayout } from '../components/authentication-layout'
@@ -17,20 +16,9 @@ export function LoginPage() {
 
   return (
     <AuthenticationLayout>
-      <FadeIn className="space-y-8">
-        <div className="space-y-3">
-          <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-            <KeyRound className="size-6" aria-hidden />
-          </div>
-          <h1 className="text-3xl font-semibold tracking-tight">Bienvenido de nuevo</h1>
-          <p className="text-muted-foreground">
-            {invitedAs ? `Todo listo, ${invitedAs}. Entra con tu usuario y tu nueva contraseña.` : 'Entra con tu usuario y contraseña del portal.'}
-          </p>
-        </div>
+      <FadeIn className="space-y-6">
+        <h1 className="text-center text-2xl font-semibold tracking-tight">{invitedAs ? 'Listo, ya puedes entrar' : 'Entrar'}</h1>
         <LoginForm initialId={invitedAs} />
-        <p className="text-center text-xs text-muted-foreground">
-          La contraseña del portal es distinta del token del MCP. ¿Primera vez? Abre el enlace de invitación que te enviaron.
-        </p>
       </FadeIn>
     </AuthenticationLayout>
   )

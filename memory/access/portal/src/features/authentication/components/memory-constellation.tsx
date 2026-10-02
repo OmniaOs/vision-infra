@@ -29,13 +29,13 @@ function buildNodes(count: number): ConstellationNode[] {
   const random = seededRandom(20261001)
   return Array.from({ length: count }, (_, id) => ({
     id,
-    x: 40 + random() * 720,
-    y: 40 + random() * 720,
-    radius: 3 + random() * 4.5,
+    x: 30 + random() * 1140,
+    y: 30 + random() * 740,
+    radius: 2.5 + random() * 4,
     kind: random() < 0.22 ? 'basic-memory' : 'mem0',
-    driftX: (random() - 0.5) * 46,
-    driftY: (random() - 0.5) * 46,
-    duration: 9 + random() * 9,
+    driftX: (random() - 0.5) * 60,
+    driftY: (random() - 0.5) * 60,
+    duration: 8 + random() * 9,
     delay: random() * 4,
   }))
 }
@@ -53,43 +53,56 @@ function buildEdges(nodes: ConstellationNode[], maxDistance: number): Array<[Con
 const drift = (node: ConstellationNode) => ({ duration: node.duration, delay: node.delay, repeat: Infinity, repeatType: 'mirror' as const, ease: 'easeInOut' as const })
 
 /**
- * Red de nodos que se mueve despacio: teal para Mem0 y ambar para Basic Memory, los mismos colores
- * del diagrama de arquitectura. Cada linea se anima con las mismas claves que sus dos nodos, asi
- * siguen unidos mientras derivan. Con "reducir movimiento" se queda quieta.
+ * Fondo de pantalla completa: una red de nodos que deriva despacio (teal = Mem0, ambar = Basic Memory), con pulsos
+ * de luz que viajan por algunos enlaces, como informacion que circula. Con "reducir movimiento" se queda quieta.
  */
 export function MemoryConstellation({ className }: { className?: string }) {
   const reduceMotion = useReducedMotion()
-  const { nodes, edges } = useMemo(() => {
-    const generated = buildNodes(34)
-    return { nodes: generated, edges: buildEdges(generated, 190) }
+  const { nodes, edges, pulses } = useMemo(() => {
+    const generated = buildNodes(58)
+    const built = buildEdges(generated, 210)
+    const random = seededRandom(7)
+    const chosen = built.filter(() => random() < 0.2).slice(0, 12)
+    return { nodes: generated, edges: built, pulses: chosen.map(([a, b], index) => ({ a, b, delay: index * 0.9, duration: 3.2 + random() * 2.5 })) }
   }, [])
 
   return (
-    <svg viewBox="0 0 800 800" preserveAspectRatio="xMidYMid slice" className={className} aria-hidden>
+    <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" className={className} aria-hidden>
       {edges.map(([a, b]) => (
         <motion.line
           key={`${a.id}-${b.id}`}
           className="stroke-primary"
           strokeWidth={1}
-          strokeOpacity={0.22}
+          strokeOpacity={0.2}
           initial={{ x1: a.x, y1: a.y, x2: b.x, y2: b.y }}
-          animate={
-            reduceMotion
-              ? undefined
-              : { x1: [a.x, a.x + a.driftX], y1: [a.y, a.y + a.driftY], x2: [b.x, b.x + b.driftX], y2: [b.y, b.y + b.driftY] }
-          }
-          transition={{
-            x1: drift(a), y1: drift(a), x2: drift(b), y2: drift(b),
-          }}
+          animate={reduceMotion ? undefined : { x1: [a.x, a.x + a.driftX], y1: [a.y, a.y + a.driftY], x2: [b.x, b.x + b.driftX], y2: [b.y, b.y + b.driftY] }}
+          transition={{ x1: drift(a), y1: drift(a), x2: drift(b), y2: drift(b) }}
         />
       ))}
+      {reduceMotion
+        ? null
+        : pulses.map(({ a, b, delay, duration }) => (
+            <motion.circle
+              key={`pulse-${a.id}-${b.id}`}
+              r={2.6}
+              className="fill-foreground"
+              style={{ filter: 'drop-shadow(0 0 5px hsl(var(--primary)))' }}
+              initial={{ cx: a.x, cy: a.y, opacity: 0 }}
+              animate={{ cx: [a.x, b.x], cy: [a.y, b.y], opacity: [0, 0.95, 0.95, 0] }}
+              transition={{ duration, delay, repeat: Infinity, repeatDelay: 1.5 + (a.id % 4), ease: 'easeInOut' }}
+            />
+          ))}
       {nodes.map((node) => (
         <motion.circle
           key={node.id}
           className={node.kind === 'mem0' ? 'fill-primary' : 'fill-amber'}
-          initial={{ cx: node.x, cy: node.y, r: node.radius }}
-          animate={reduceMotion ? undefined : { cx: [node.x, node.x + node.driftX], cy: [node.y, node.y + node.driftY], r: [node.radius, node.radius * 1.35] }}
-          transition={{ cx: drift(node), cy: drift(node), r: drift(node) }}
+          initial={{ cx: node.x, cy: node.y, r: node.radius, opacity: 0.85 }}
+          animate={
+            reduceMotion
+              ? undefined
+              : { cx: [node.x, node.x + node.driftX], cy: [node.y, node.y + node.driftY], r: [node.radius, node.radius * 1.4], opacity: [0.6, 1] }
+          }
+          transition={{ cx: drift(node), cy: drift(node), r: drift(node), opacity: drift(node) }}
         />
       ))}
     </svg>
