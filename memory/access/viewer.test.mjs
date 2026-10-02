@@ -13,7 +13,7 @@ const CLI = 'omnia_cli_token_0123456789abcdef'; // cliente: cli-frutal
 
 const PROJECTS = ['global', 'int-frutal', 'proy-omniapos', 'cli-frutal', 'cli-weritas', 'legacy projects'];
 const NOTE = { title: 'Nota', permalink: 'nota-1', file_path: 'a/nota-1.md', content: '# Hola\n\n<script>alert(1)</script>', frontmatter: { type: 'note' } };
-let upstream, upPort, gw, port, calls, memoriesRequests;
+let upstream, upPort, gw, port, calls, memoriesRequests, scrolls, restBroken = false;
 
 const listen = (s) => new Promise((r) => s.listen(0, '127.0.0.1', () => r(s.address().port)));
 
@@ -21,12 +21,27 @@ function fakeBackend() {
   const sessions = new Map();
   return http.createServer((req, res) => {
     const url = new URL(req.url, 'http://x');
+    if (req.method === 'POST' && url.pathname === '/collections/openmemory/points/scroll') {
+      let body = '';
+      req.on('data', (c) => (body += c));
+      req.on('end', () => {
+        const q = JSON.parse(body);
+        scrolls.push(q);
+        const user = q.filter.must[0].match.value;
+        const page = q.offset === 'p2' ? 2 : 1;
+        const points = Array.from({ length: page === 1 ? 100 : 3 }, (_, i) => ({ id: `m${page}-${i}`, payload: { data: `memoria ${page}-${i}`, user_id: user, created_at: '2026-09-01T00:00:00Z' } }));
+        if (page === 2) points.push({ id: 'ajena', payload: { data: 'de otro espacio', user_id: 'cli-weritas' } }); // simula un filtro roto
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ result: { points, next_page_offset: page === 1 ? 'p2' : null } }));
+      });
+      return;
+    }
     if (url.pathname === '/api/v1/memories/') {
       memoriesRequests.push({ user: url.searchParams.get('user_id'), auth: req.headers.authorization });
-      const page = Number(url.searchParams.get('page'));
-      const items = Array.from({ length: page === 1 ? 100 : 3 }, (_, i) => ({ id: `m${page}-${i}`, content: `memoria ${page}-${i}`, created_at: '2026-09-01T00:00:00Z', categories: ['infra'], app_name: 'claude' }));
+      if (restBroken) { res.writeHead(500); return res.end(); }
+      const items = url.searchParams.get('page') === '1' ? [{ id: 'm1-0', categories: ['infra'], app_name: 'claude' }] : [];
       res.writeHead(200, { 'content-type': 'application/json' });
-      return res.end(JSON.stringify({ items, total: 103, page, size: 100, pages: 2 }));
+      return res.end(JSON.stringify({ items, total: 1, page: 1, size: 100, pages: 1 }));
     }
     if (req.method === 'GET' && url.pathname === '/mcp') {
       const sid = Math.random().toString(16).slice(2);
@@ -61,7 +76,7 @@ function fakeBackend() {
 }
 
 before(async () => {
-  calls = []; memoriesRequests = [];
+  calls = []; memoriesRequests = []; scrolls = [];
   upstream = fakeBackend();
   upPort = await listen(upstream);
   gw = createGateway({
@@ -74,6 +89,7 @@ before(async () => {
       { name: 'knowledge', hosts: ['kb.test'], upstream: `http://127.0.0.1:${upPort}`, upstreamAuth: 'Basic c2VjcmV0bw==', allow: ['/'] },
       { name: 'panel', hosts: ['panel.test'], upstream: '', allow: [] },
     ],
+    viewerOptions: { qdrantUrl: `http://127.0.0.1:${upPort}` },
     enforce: true,
   });
   port = await listen(gw);
@@ -149,17 +165,25 @@ test('grafo: lista de espacios por rol y memorias solo del espacio permitido (gl
   assert.deepEqual(await sp(CLI), ['cli-frutal']);
   assert.ok((await sp(ADM)).includes('proy-omniapos'));
 
-  memoriesRequests.length = 0;
+  memoriesRequests.length = 0; scrolls.length = 0;
   const g = await api('/api/graph?space=int-frutal', MEM);
   assert.equal(g.status, 200);
-  assert.equal(g.body.total, 103, 'recorre las paginas');
-  assert.deepEqual(g.body.memories[0].categories, ['infra']);
+  assert.equal(g.body.total, 103, 'recorre las paginas de Qdrant y descarta lo de otro namespace');
+  assert.ok(!g.body.memories.some((m) => m.id === 'ajena'), 'un punto ajeno nunca sale, aunque el filtro fallara');
+  assert.ok(scrolls.length === 2 && scrolls.every((q) => q.filter.must[0].key === 'user_id' && q.filter.must[0].match.value === 'int-frutal'), 'Qdrant se consulta SIEMPRE filtrado por el namespace del espacio');
+  const withCats = g.body.memories.find((m) => m.id === 'm1-0');
+  assert.deepEqual(withCats.categories, ['infra'], 'las categorias vienen de la REST cuando existen');
+  assert.deepEqual(g.body.memories.find((m) => m.id === 'm1-1').categories, []);
   assert.ok(memoriesRequests.every((r) => r.user === 'int-frutal' && r.auth === 'Bearer secreto-mem0'));
+  restBroken = true;
+  assert.equal((await api('/api/graph?space=int-frutal', MEM)).body.total, 103, 'si la REST falla, el grafo sigue con los textos');
+  restBroken = false;
   assert.equal((await api('/api/graph?space=cli-weritas', MEM)).status, 404);
   assert.equal((await api('/api/graph?space=global', CLI)).status, 404);
   assert.equal((await api('/api/graph?space=../x', ADM)).status, 404, 'espacio mal formado');
+  scrolls.length = 0;
   await api('/api/graph?space=global', ADM);
-  assert.equal(memoriesRequests.pop().user, 'omnia-global');
+  assert.equal(scrolls[0].filter.must[0].match.value, 'omnia-global');
 });
 
 test('si el origen cae responde 502 sin filtrar detalles', async () => {

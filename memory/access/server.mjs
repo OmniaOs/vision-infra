@@ -408,6 +408,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     if (!r.upstreamAuth) console.error(`AVISO: la ruta ${r.name} no inyecta credenciales al backend.`);
   }
   const port = Number(process.env.PORT || 8080);
-  createGateway({ store, routes, enforce, portalFile: process.env.ACCESS_PORTAL_FILE, log: (e) => console.log(JSON.stringify(e)) })
+  createGateway({ store, routes, enforce, portalFile: process.env.ACCESS_PORTAL_FILE,
+    viewerOptions: { qdrantUrl: process.env.QDRANT_URL, qdrantCollection: process.env.QDRANT_COLLECTION, qdrantKey: process.env.QDRANT_API_KEY }, log: (e) => console.log(JSON.stringify(e)) })
     .listen(port, () => console.error(`access gateway en :${port} (${store.size} usuarios)`));
 }

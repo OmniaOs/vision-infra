@@ -6,6 +6,13 @@ export const UNCATEGORIZED = 'sin categoría'
 
 const GOLDEN_ANGLE = 2.399963229728653
 const hubId = (category: string) => `hub:${category}`
+const monthFormatter = new Intl.DateTimeFormat('es', { month: 'long', year: 'numeric' })
+
+/** "septiembre de 2026", o "sin fecha". */
+function monthOf(createdAt: string | null): string {
+  const time = createdAt ? Date.parse(createdAt) : NaN
+  return Number.isNaN(time) ? 'sin fecha' : monthFormatter.format(time)
+}
 
 /**
  * Cada categoria es un nucleo; sus memorias se reparten en espiral a su alrededor (siempre en el mismo sitio:
@@ -14,8 +21,11 @@ const hubId = (category: string) => `hub:${category}`
  */
 export function buildMemoryGraph(memories: MemoryItem[]): MemoryGraph {
   const groups = new Map<string, MemoryItem[]>()
+  // Las memorias guardadas antes de que existiera el registro de categorias no la tienen: si NINGUNA la tiene,
+  // se agrupan por mes de creacion para que el grafo cuente algo mas que un solo bloque.
+  const anyCategorized = memories.some((memory) => memory.categories.length > 0)
   for (const memory of memories) {
-    const primary = memory.categories[0] ?? UNCATEGORIZED
+    const primary = memory.categories[0] ?? (anyCategorized ? UNCATEGORIZED : monthOf(memory.createdAt))
     groups.set(primary, [...(groups.get(primary) ?? []), memory])
   }
   const categories = [...groups.keys()].sort((a, b) => (groups.get(b)!.length - groups.get(a)!.length) || a.localeCompare(b, 'es'))

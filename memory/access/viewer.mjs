@@ -4,7 +4,7 @@
 //   GET /api/notes/tree?project=X           notas de un proyecto (sin contenido)
 //   GET /api/notes/note?project=X&id=perma  una nota (markdown + frontmatter)
 //   GET /api/graph/spaces                   espacios cuyas memorias puedo ver
-//   GET /api/graph?space=S                  memorias de Mem0 de un espacio
+//   GET /api/graph?space=S                  memorias de Mem0 de un espacio (textos de Qdrant, categorias de la REST si hay)
 //
 // Nada de aqui escribe. El permiso es el mismo de siempre (policy.access): admin todo, miembro/lectura el global y
 // sus espacios, cliente solo el suyo. Basic Memory se llama con `project` siempre fijado por el servidor, y un
@@ -18,7 +18,8 @@ const MAX_NOTE_BYTES = 256 * 1024;
 const MAX_MEMORIES = 500;
 const PAGE = 100;
 
-export function createViewerApi({ routes, store, log = () => {}, callTool = callMcpTool, fetchImpl = fetch }) {
+export function createViewerApi({ routes, store, qdrantUrl, qdrantCollection, qdrantKey, log = () => {}, callTool = callMcpTool, fetchImpl = fetch }) {
+  const qdrant = { url: String(qdrantUrl || 'http://mem0_store:6333').replace(/\/$/, ''), collection: qdrantCollection || 'openmemory', key: qdrantKey };
   const kb = routes.find((r) => r.name === 'knowledge');
   const mem0 = routes.find((r) => r.name === 'mem0');
 
@@ -76,27 +77,61 @@ export function createViewerApi({ routes, store, log = () => {}, callTool = call
     return send(res, 200, { spaces: [...all].filter((s) => canSee(actor, s)).sort() });
   }
 
+  /** Textos desde Qdrant (la fuente que siempre los tiene), filtrados por el namespace del espacio. */
+  async function scrollMemories(namespace) {
+    const out = [];
+    let offset = null;
+    do {
+      const r = await fetchImpl(`${qdrant.url}/collections/${encodeURIComponent(qdrant.collection)}/points/scroll`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...(qdrant.key ? { 'api-key': qdrant.key } : {}) },
+        body: JSON.stringify({ filter: { must: [{ key: 'user_id', match: { value: namespace } }] }, limit: PAGE, with_payload: true, with_vector: false, ...(offset ? { offset } : {}) }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!r.ok) throw new Error(`qdrant_http_${r.status}`);
+      const { result } = await r.json();
+      for (const point of result?.points || []) {
+        const payload = point.payload || {};
+        // Defensa en profundidad: aunque el filtro falle, un punto de otro namespace nunca sale.
+        if (payload.user_id !== namespace || typeof payload.data !== 'string') continue;
+        out.push({ id: String(point.id), content: payload.data.slice(0, 2000), createdAt: payload.created_at ?? null, categories: [], app: null });
+      }
+      offset = result?.next_page_offset ?? null;
+    } while (offset && out.length < MAX_MEMORIES);
+    return out;
+  }
+
+  /** Categorias y app desde la REST de OpenMemory (SQL). Es un extra: si falla o esta vacia, el grafo sigue. */
+  async function restDetails(namespace) {
+    const details = new Map();
+    if (!mem0) return details;
+    try {
+      for (let page = 1; page <= 5; page++) {
+        const r = await fetchImpl(`${mem0.upstream}/api/v1/memories/?user_id=${encodeURIComponent(namespace)}&page=${page}&size=${PAGE}`, {
+          headers: mem0.upstreamAuth ? { authorization: mem0.upstreamAuth } : {}, signal: AbortSignal.timeout(8000),
+        });
+        if (!r.ok) break;
+        const body = await r.json();
+        const items = Array.isArray(body) ? body : body.items || [];
+        for (const m of items) {
+          if (m && m.id) details.set(String(m.id), { categories: Array.isArray(m.categories) ? m.categories.map(String).slice(0, 8) : [], app: m.app_name ?? null });
+        }
+        if (items.length < PAGE || (body.pages && page >= body.pages)) break;
+      }
+    } catch { /* sin extras */ }
+    return details;
+  }
+
   async function graph(actor, res, space) {
     if (!SPACE_RE.test(space || '') || !canSee(actor, space)) return send(res, 404, { error: 'no_existe' });
-    if (!mem0) return send(res, 503, { error: 'sin_mem0' });
-    const memories = [];
-    for (let page = 1; memories.length < MAX_MEMORIES; page++) {
-      const url = `${mem0.upstream}/api/v1/memories/?user_id=${encodeURIComponent(mem0Namespace(space))}&page=${page}&size=${PAGE}`;
-      const r = await fetchImpl(url, { headers: mem0.upstreamAuth ? { authorization: mem0.upstreamAuth } : {}, signal: AbortSignal.timeout(15000) });
-      if (!r.ok) throw new Error(`mem0_http_${r.status}`);
-      const body = await r.json();
-      const items = Array.isArray(body) ? body : body.items || [];
-      for (const m of items) {
-        if (!m || typeof m.content !== 'string') continue;
-        memories.push({
-          id: String(m.id), content: m.content.slice(0, 2000), createdAt: m.created_at ?? null,
-          categories: Array.isArray(m.categories) ? m.categories.map(String).slice(0, 8) : [], app: m.app_name ?? null,
-        });
-      }
-      if (items.length < PAGE || (body.pages && page >= body.pages)) break;
-    }
+    const namespace = mem0Namespace(space);
+    const [points, details] = await Promise.all([scrollMemories(namespace), restDetails(namespace)]);
+    const memories = points
+      .map((m) => ({ ...m, ...(details.get(m.id) || {}) }))
+      .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+      .slice(0, MAX_MEMORIES);
     read(actor, 'memorias', space);
-    return send(res, 200, { space, total: memories.length, memories: memories.slice(0, MAX_MEMORIES) });
+    return send(res, 200, { space, total: memories.length, memories });
   }
 
   /** Devuelve true si la ruta era suya. */

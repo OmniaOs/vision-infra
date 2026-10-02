@@ -128,8 +128,7 @@ instante las conexiones abiertas de ese token y deja funcionando los demás.
   OpenMemory (`/api/v1/memories/?user_id=<espacio>`) con la red interna del gateway.
 - **Seguridad:** nada escribe; `project` lo fija el servidor; `memory://` en un identificador se rechaza; el markdown no admite
   HTML en bruto, filtra enlaces (solo http/https/mailto) y no carga imágenes; React escapa el texto de las memorias.
-- **No verificado contra producción:** la forma exacta de la respuesta REST de OpenMemory (se leyó de forma tolerante). Si el
-  grafo sale vacío tras desplegar, revisar `GET /api/v1/memories/` desde dentro del contenedor.
+- **Por qué Qdrant:** al hacer persistentes las bases de OpenMemory, su SQL (lista y categorías) arrancó vacío mientras los textos seguían en Qdrant. Las memorias antiguas no tienen categoría: se agrupan por mes. Las nuevas sí traen categoría.
 
 ## Dar de alta a un dev (admin, ~1 minuto)
 
