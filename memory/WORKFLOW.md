@@ -32,11 +32,12 @@ Si es tu primera vez, empieza por [`MANUAL-DEV.md`](MANUAL-DEV.md) y vuelve aqu�
 2. Corre `/memory-setup`. Escribe el `.mcp.json` con las tres conexiones y **no hace commit**.
 3. Reinicia Claude Code otra vez para que cargue el `.mcp.json`.
 
-**Compruébalo** (1 minuto): pídele a Claude *"busca en la memoria compartida por qué
-OpenMemory no debe publicarse sin autenticación"*. Si te devuelve hechos del namespace
-global (por ejemplo que la imagen `mem0/openmemory-mcp` acepta cualquier petición), estás
-conectado a Mem0. Para Basic Memory: *"busca en las notas la arquitectura de la memoria
-compartida"* debe encontrar la nota `omnia-infra/memoria-compartida`.
+**Compruébalo** (1 minuto): pídele a Claude *"busca en la memoria compartida cómo se
+redespliega memory-mem0 después de un push"*. Si te devuelve lecciones del espacio global,
+estás conectado a Mem0. Para las notas: *"busca en las notas la estructura de las notas"*
+debe encontrar la guía **Estructura de las notas** del proyecto `global`. También puedes
+abrir el portal (`https://memorypanel.omniaos.ai`): **Notas** y **Grafo de memoria** muestran
+lo que tienes asignado.
 
 ## Un día normal
 
@@ -101,7 +102,7 @@ pueda seguir sin volver a investigar. `/resume` lo lee y retoma donde quedó.
    ├─ sí, y seguiría siendo cierta en OTRO repo de Omnia → Mem0 global
    ├─ sí, pero necesita el contexto de este cliente/proyecto → Mem0 del proyecto
    └─ no: tiene línea de tiempo, varias partes conectadas o causa + fix
-        → nota larga en Basic Memory (proyecto "projects", carpeta del cliente)
+        → nota larga en Basic Memory (proyecto = el espacio, carpeta según ESTRUCTURA-NOTAS.md)
 ```
 
 Un mismo hallazgo grande puede dar **una nota larga y también un hecho corto**
@@ -115,7 +116,8 @@ está en [`CONVENCION-DE-CONTENIDO.md`](CONVENCION-DE-CONTENIDO.md).
 2. **Cero datos de cliente en Mem0 global.** Lo de un cliente va al proyecto de ese cliente.
 3. **Que siga siendo útil en 3 meses.** Nada de "hoy no arrancó el build" ni estado de una tarea en curso.
 4. **No repitas lo que ya está en `vision/specs/` o en un README.** Enlázalo.
-5. **Nunca uses `delete_all_memories`.** Borra todo un namespace y no se puede deshacer.
+5. **Nunca uses `delete_all_memories`** (es solo de administradores y borra todo un espacio). Si una lección es
+   incorrecta, bórrala con `delete_memory`.
 
 ## Lo que conviene saber de cada memoria
 
