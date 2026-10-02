@@ -10,7 +10,7 @@
 // sus espacios, cliente solo el suyo. Basic Memory se llama con `project` siempre fijado por el servidor, y un
 // identificador que apunte a otro proyecto (memory://...) se rechaza.
 
-import { access, listNamespaceAliases, mem0Namespace, spaceFromKbProject, spaceFromMem0, SPACE_RE } from './policy.mjs';
+import { access, listKbAliases, listNamespaceAliases, mem0Namespace, spaceFromKbProject, spaceFromMem0, SPACE_RE } from './policy.mjs';
 import { callMcpTool } from './mcp-client.mjs';
 import { analyzeMemories } from './cluster.mjs';
 
@@ -198,12 +198,22 @@ export function createViewerApi({ routes, store, qdrantUrl, qdrantCollection, qd
       .sort((a, b) => b.count - a.count || a.namespace.localeCompare(b.namespace));
   }
 
+  /** Para administrar: cada proyecto de Basic Memory y a que espacio corresponde (null = sin asignar). */
+  async function projectRows() {
+    const aliased = new Set(listKbAliases().map(([name]) => name));
+    const projects = (await kbCall('list_memory_projects', { output_format: 'json' }))?.projects || [];
+    return [...new Set([...projects.map((p) => p.name), ...aliased])]
+      .filter((name) => LEGACY_NS_RE.test(name))
+      .map((name) => ({ name, space: spaceFromKbProject(name), aliased: aliased.has(name) }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
   /** Espacios que ya existen en algun sitio (memorias, notas, alias o personas): lo que se puede asignar a alguien. */
   async function catalog() {
     const counts = await safeCounts();
     const ids = new Set(['global']);
     for (const ns of counts.keys()) { const space = spaceFromMem0(ns); if (space) ids.add(space); }
-    for (const [, space] of listNamespaceAliases()) ids.add(space);
+    for (const [, space] of [...listNamespaceAliases(), ...listKbAliases()]) ids.add(space);
     for (const user of store.all()) for (const space of user.spaces) ids.add(space);
     const notes = new Set();
     try {
@@ -234,5 +244,5 @@ export function createViewerApi({ routes, store, qdrantUrl, qdrantCollection, qd
     return true;
   }
 
-  return { handle, namespaceRows, catalog };
+  return { handle, namespaceRows, projectRows, catalog };
 }

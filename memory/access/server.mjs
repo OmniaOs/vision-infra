@@ -70,7 +70,7 @@ function readBody(req, limit = BODY_LIMIT) {
 export function createGateway({
   devs, store, routes, enforce = false, rateLimitPerMin = 1200,
   setupDir = path.join(HERE, 'setup'), panelDir = path.join(HERE, 'panel'), memoryDomain, failedAuthPerMin = 30,
-  portalFile, secureCookie = true, authOptions = {}, viewerOptions = {}, aliasFile, aliasEnv = '', log = () => {},
+  portalFile, secureCookie = true, authOptions = {}, viewerOptions = {}, aliasFile, aliasEnv = '', kbAliasEnv = '', log = () => {},
 }) {
   const users = store || storeFromLegacy(devs || new Map());
   const setupFiles = { '/setup': 'connect.ps1', '/setup.sh': 'connect.sh' };
@@ -148,10 +148,14 @@ export function createGateway({
   }
 
   const auth = createAuth({ file: portalFile, secureCookie, ...authOptions });
-  const aliasStore = createAliasStore({ file: aliasFile, envText: aliasEnv, log });
+  const aliasStore = createAliasStore({ file: aliasFile, envText: aliasEnv, kbEnvText: kbAliasEnv, enforceEnv: enforce, log });
+  const isEnforcing = () => aliasStore.enforce;
+  // Lo que el bloqueo denegaria (solo en modo auditoria): ayuda a decidir cuando activarlo.
+  const wouldDeny = { total: 0, since: new Date().toISOString(), recent: [] };
+  const noteWouldDeny = (entry) => { wouldDeny.total++; wouldDeny.recent.unshift(entry); if (wouldDeny.recent.length > 20) wouldDeny.recent.pop(); };
   const viewer = createViewerApi({ routes, store: users, log, ...viewerOptions });
   const panelApi = createPanelApi({
-    store: users, auth, closeSessions, closeSpace, aliases: aliasStore, log, viewer,
+    store: users, auth, closeSessions, closeSpace, aliases: aliasStore, auditSnapshot: () => ({ ...wouldDeny, recent: [...wouldDeny.recent] }), log, viewer,
     memoryDomain: memoryDomain || (routes.find((r) => r.name === 'mem0')?.hosts[0]) || 'memory.omniaos.ai',
     panelDomain: routes.find((r) => r.name === 'panel')?.hosts[0] || 'memorypanel.omniaos.ai',
   });
@@ -246,8 +250,10 @@ export function createGateway({
     /** Aplica un veredicto de la politica. Devuelve true si la peticion sigue. */
     const decide = (r) => {
       if (r.ok) return true;
-      pol = enforce ? `deny:${r.reason}` : `would_deny:${r.reason}`;
-      if (enforce) { reply(res, 403, { error: 'forbidden', reason: r.reason }); return false; }
+      const blocking = isEnforcing();
+      pol = blocking ? `deny:${r.reason}` : `would_deny:${r.reason}`;
+      if (blocking) { reply(res, 403, { error: 'forbidden', reason: r.reason }); return false; }
+      noteWouldDeny({ t: new Date().toISOString(), dev, route: route.name, reason: r.reason });
       return true;
     };
 
@@ -417,7 +423,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   }
   const port = Number(process.env.PORT || 8080);
   createGateway({ store, routes, enforce, portalFile: process.env.ACCESS_PORTAL_FILE,
-    aliasFile: process.env.ACCESS_ALIASES_FILE, aliasEnv: process.env.ACCESS_NAMESPACE_ALIASES,
+    aliasFile: process.env.ACCESS_ALIASES_FILE, aliasEnv: process.env.ACCESS_NAMESPACE_ALIASES, kbAliasEnv: process.env.ACCESS_PROJECT_ALIASES,
     viewerOptions: { qdrantUrl: process.env.QDRANT_URL, qdrantCollection: process.env.QDRANT_COLLECTION, qdrantKey: process.env.QDRANT_API_KEY }, log: (e) => console.log(JSON.stringify(e)) })
     .listen(port, () => console.error(`access gateway en :${port} (${store.size} usuarios)`));
 }

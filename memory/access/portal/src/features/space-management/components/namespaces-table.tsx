@@ -5,9 +5,10 @@ import { DataTable } from '@/shared/data-table/data-table'
 import { DataTableColumnHeader } from '@/shared/data-table/data-table-column-header'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
-import type { NamespaceRow } from '../types/space-types'
+import type { AliasKind, NamespaceRow } from '../types/space-types'
 
 interface NamespacesTableProps {
+  kind: AliasKind
   rows: NamespaceRow[]
   isLoading: boolean
   onAssign: (row: NamespaceRow) => void
@@ -18,13 +19,13 @@ function statusOf(row: NamespaceRow) {
   return row.space ? 'assigned' : 'unassigned'
 }
 
-export function NamespacesTable({ rows, isLoading, onAssign, onRemove }: NamespacesTableProps) {
+export function NamespacesTable({ kind, rows, isLoading, onAssign, onRemove }: NamespacesTableProps) {
   const columns = useMemo<ColumnDef<NamespaceRow, unknown>[]>(
     () => [
       {
         accessorKey: 'namespace',
-        meta: { title: 'Namespace de Mem0' },
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Namespace de Mem0" />,
+        meta: { title: kind === 'kb' ? 'Proyecto de Basic Memory' : 'Namespace de Mem0' },
+        header: ({ column }) => <DataTableColumnHeader column={column} title={kind === 'kb' ? 'Proyecto de Basic Memory' : 'Namespace de Mem0'} />,
         cell: ({ row }) => <span className="font-mono text-sm">{row.original.namespace}</span>,
         enableHiding: false,
       },
@@ -32,7 +33,7 @@ export function NamespacesTable({ rows, isLoading, onAssign, onRemove }: Namespa
         accessorKey: 'count',
         meta: { title: 'Memorias' },
         header: ({ column }) => <DataTableColumnHeader column={column} title="Memorias" />,
-        cell: ({ row }) => <span className="tabular-nums">{row.original.count}</span>,
+        cell: ({ row }) => <span className="tabular-nums">{row.original.count ?? '—'}</span>,
       },
       {
         id: 'space',
@@ -83,7 +84,7 @@ export function NamespacesTable({ rows, isLoading, onAssign, onRemove }: Namespa
         },
       },
     ],
-    [onAssign, onRemove],
+    [kind, onAssign, onRemove],
   )
   return (
     <DataTable
@@ -95,7 +96,7 @@ export function NamespacesTable({ rows, isLoading, onAssign, onRemove }: Namespa
       globalFilterFn={(row, _id, value) => `${row.original.namespace} ${row.original.space ?? ''}`.toLowerCase().includes(String(value).trim().toLowerCase())}
       facetedFilters={[{ columnId: 'space', title: 'Estado', options: [{ value: 'assigned', label: 'Asignado' }, { value: 'unassigned', label: 'Sin asignar' }] }]}
       emptyTitle="Sin namespaces"
-      emptyDescription="Aún no hay memorias guardadas."
+      emptyDescription={kind === 'kb' ? 'Aún no hay proyectos de notas.' : 'Aún no hay memorias guardadas.'}
     />
   )
 }

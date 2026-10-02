@@ -43,6 +43,21 @@ export function configureNamespaceAliases(text) {
 /** Alias vigentes: [[namespace antiguo, espacio]]. */
 export const listNamespaceAliases = () => [...toSpace];
 
+// Basic Memory: alias proyecto antiguo -> espacio. El nombre propio de un espacio sigue valiendo (no se bloquea).
+let kbToSpace = new Map();
+
+/** Texto `proyecto=espacio,...`. Lanza si algo no es valido o esta repetido. */
+export function configureKbAliases(text) {
+  const next = new Map();
+  for (const [project, space] of parseNamespaceAliases(text)) {
+    if (next.has(project)) throw new Error(`alias repetido: ${project}`);
+    next.set(project, space);
+  }
+  kbToSpace = next;
+}
+
+export const listKbAliases = () => [...kbToSpace];
+
 export const mem0Namespace = (space) => (space === 'global' ? 'omnia-global' : toNamespace.get(space) ?? space);
 export const spaceFromMem0 = (ns) => {
   if (ns === 'omnia-global') return 'global';
@@ -51,7 +66,8 @@ export const spaceFromMem0 = (ns) => {
   return SPACE_RE.test(ns) && !toNamespace.has(ns) ? ns : null;
 };
 /** Basic Memory: el proyecto se llama igual que el espacio. */
-export const spaceFromKbProject = (p) => (typeof p === 'string' && SPACE_RE.test(p) ? p : null);
+// Un proyecto pertenece a un espacio por su nombre o por un alias (varios proyectos pueden apuntar al mismo espacio).
+export const spaceFromKbProject = (p) => (typeof p !== 'string' ? null : kbToSpace.get(p) ?? (SPACE_RE.test(p) ? p : null));
 
 const deny = (reason) => ({ ok: false, reason });
 const ok = () => ({ ok: true });

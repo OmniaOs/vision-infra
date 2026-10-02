@@ -64,7 +64,7 @@ test('asignar un namespace antiguo a un espacio desde el portal: se aplica al in
   assert.equal(set.status, 200);
   const rows = (await call('GET', '/api/admin/namespaces', ADM)).body.namespaces;
   assert.deepEqual(rows.find((n) => n.namespace === 'hr-omnia'), { namespace: 'hr-omnia', count: 39, space: 'int-frutal', aliased: true, origin: 'file' });
-  assert.deepEqual(JSON.parse(readFileSync(path.join(dir, 'aliases.json'), 'utf8')).aliases, { 'hr-omnia': 'int-frutal' });
+  assert.deepEqual(JSON.parse(readFileSync(path.join(dir, 'aliases.json'), 'utf8')).mem0, { 'hr-omnia': 'int-frutal' });
   const sp = (await call('GET', '/api/admin/spaces', ADM)).body.spaces.map((s) => s.id);
   assert.ok(['global', 'int-frutal', 'proy-desdecoolify'].every((s) => sp.includes(s)), 'el catalogo reune lo que ya existe');
   assert.equal((await call('DELETE', '/api/admin/aliases/hr-omnia', ADM)).status, 200);

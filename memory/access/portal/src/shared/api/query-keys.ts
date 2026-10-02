@@ -12,5 +12,7 @@ export const queryKeys = {
   graphSpaces: ['graph', 'spaces'] as const,
   spaceCatalog: ['spaces', 'catalog'] as const,
   namespaces: ['spaces', 'namespaces'] as const,
+  kbProjects: ['spaces', 'projects'] as const,
+  accessSettings: ['access', 'settings'] as const,
   memories: (space: string) => ['graph', 'memories', space] as const,
 }

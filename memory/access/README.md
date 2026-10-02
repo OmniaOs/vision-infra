@@ -130,16 +130,25 @@ instante las conexiones abiertas de ese token y deja funcionando los demás.
   HTML en bruto, filtra enlaces (solo http/https/mailto) y no carga imágenes; React escapa el texto de las memorias.
 - **Por qué Qdrant:** al hacer persistentes las bases de OpenMemory, su SQL (lista y categorías) arrancó vacío mientras los textos seguían en Qdrant. Las memorias antiguas no tienen categoría: se agrupan por mes. Las nuevas sí traen categoría.
 
-## Espacios y alias (todo desde el portal)
+## Espacios, alias y permisos (todo desde el portal)
 
-- **Espacios:** página admin que lista cada namespace de Mem0 con cuántas memorias tiene y a qué espacio corresponde. «Asignar»
-  decide el espacio de un namespace antiguo (uno existente o uno nuevo con prefijo) **sin mover ni reescribir memorias** y sin
-  redeploy. Se guarda en `ACCESS_ALIASES_FILE` (`/data/aliases.json`); los de `ACCESS_NAMESPACE_ALIASES` (Coolify) se respetan
-  pero solo se editan allí. Cambiar un alias corta las conexiones MCP de ese espacio para que se reabran con el permiso nuevo.
-- **Asignar espacios a personas:** el selector ofrece primero los espacios que ya existen (con su número de memorias y si tienen
-  notas) y deja crear uno nuevo. Un cliente solo ve los `cli-`.
-- **Editar a cualquiera:** al cambiar el rol o los espacios de una persona de `ACCESS_DEVS`, pasa sola al portal y conserva su
-  mismo token. Solo el acceso de emergencia (`ACCESS_ADMINS`) no se edita.
+Página **Espacios** (solo admin), con tres cosas:
+- **Memorias (Mem0):** cada namespace con cuántas memorias tiene y a qué espacio corresponde. «Asignar» decide el espacio de
+  uno antiguo (existente o nuevo con prefijo) **sin mover ni reescribir memorias** y sin redeploy. Cambiarlo corta las
+  conexiones MCP de ese espacio para que se reabran con el permiso nuevo.
+- **Notas (Basic Memory):** lo mismo para los proyectos (`main`, `projects`…). Varios proyectos pueden apuntar al mismo espacio y
+  el nombre propio de un espacio sigue valiendo. Basic Memory revisa el proyecto en cada mensaje, así que no hay conexiones que cortar.
+  Un proyecto sin espacio solo lo ve un admin.
+- **Permisos de acceso:** interruptor entre *solo registrar* (auditoría) y *bloqueando*. Muestra cuántos intentos se habrían
+  bloqueado y los últimos, y al activar avisa de personas sin espacios y de namespaces o proyectos sin asignar. Si Coolify tiene
+  `ACCESS_ENFORCE=1`, queda forzado y no se apaga desde el portal. El registro de auditoría vive en memoria (se reinicia al redeployar).
+
+Todo se guarda en `ACCESS_ALIASES_FILE` (`/data/aliases.json`: `mem0`, `kb`, `enforce`). Los alias de Coolify
+(`ACCESS_NAMESPACE_ALIASES`, `ACCESS_PROJECT_ALIASES`) se respetan pero solo se editan allí. Un alias inválido se rechaza sin
+dejar nada a medias.
+
+Además, el selector de espacios de una persona ofrece primero los que ya existen, y al editar a alguien de `ACCESS_DEVS` pasa
+solo al portal conservando su token (solo `ACCESS_ADMINS` no se edita).
 
 ## Dar de alta a un dev (admin, ~1 minuto)
 

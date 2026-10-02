@@ -10,18 +10,19 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/shared/ui/input'
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from '@/shared/ui/select'
 import { useAssignNamespace, useSpaceCatalog } from '../hooks/use-space-queries'
-import type { NamespaceRow } from '../types/space-types'
+import type { AliasKind, NamespaceRow } from '../types/space-types'
 
 const NEW_SPACE = '__new__'
 const KINDS: SpaceKind[] = ['project', 'internal', 'client']
 
 interface AssignNamespaceDialogProps {
+  kind: AliasKind
   row: NamespaceRow | null
   onClose: () => void
 }
 
 /** Decide a que espacio pertenece un namespace antiguo: uno que ya existe o uno nuevo (con su prefijo). */
-export function AssignNamespaceDialog({ row, onClose }: AssignNamespaceDialogProps) {
+export function AssignNamespaceDialog({ kind: aliasKind, row, onClose }: AssignNamespaceDialogProps) {
   const { data: catalog = [] } = useSpaceCatalog(row !== null)
   const { mutate, isPending, isError, error, reset } = useAssignNamespace()
   const [choice, setChoice] = useState<string>('')
@@ -46,7 +47,7 @@ export function AssignNamespaceDialog({ row, onClose }: AssignNamespaceDialogPro
     if (!choice) return setFormError('Elige un espacio.')
     setFormError(undefined)
     mutate(
-      { namespace: row.namespace, space: target },
+      { kind: aliasKind, namespace: row.namespace, space: target },
       {
         onSuccess: () => {
           toast.success('Asignado', `${row.namespace} ahora es ${target}. Se aplica al instante.`)
@@ -62,7 +63,7 @@ export function AssignNamespaceDialog({ row, onClose }: AssignNamespaceDialogPro
         <DialogHeader>
           <DialogTitle>Asignar «{row?.namespace}» a un espacio</DialogTitle>
           <DialogDescription>
-            Sus {row?.count} memorias no se mueven ni se reescriben: el espacio solo decide quién las ve. Las personas con ese espacio las verán al instante.
+            {aliasKind === 'kb' ? 'Sus notas no se mueven ni se reescriben' : `Sus ${row?.count ?? 0} memorias no se mueven ni se reescriben`}: el espacio solo decide quién las ve. Las personas con ese espacio las verán al instante.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-5" noValidate>

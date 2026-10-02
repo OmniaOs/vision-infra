@@ -23,7 +23,9 @@
 //   DELETE /api/admin/tokens/:tid           revocar cualquiera del portal
 //   GET    /api/admin/spaces                espacios que ya existen (para asignarlos a personas)
 //   GET    /api/admin/namespaces            namespaces de Mem0 con su conteo y a que espacio corresponden
-//   PUT    /api/admin/aliases {namespace, space}   asignar un namespace antiguo a un espacio (sin redeploy)
+//   GET    /api/admin/projects              proyectos de Basic Memory y a que espacio corresponden
+//   PUT    /api/admin/aliases {kind: 'mem0'|'kb', namespace, space}   asignar un namespace/proyecto antiguo a un espacio
+//   GET|PUT /api/admin/settings {enforce}   modo de permisos: bloquear o solo registrar
 //   DELETE /api/admin/aliases/:namespace    quitar esa asignacion
 //   POST   /api/admin/users/:id/adopt       migrar una persona de ACCESS_DEVS al portal (mismo token)
 //   POST   /api/admin/users/:id/invite      invitacion nueva (alta o restablecer contrasena)
@@ -68,7 +70,7 @@ const publicUser = (u, auth, tokens = []) => {
 };
 
 export function createPanelApi({
-  store, auth, closeSessions, closeSpace = () => 0, aliases, viewer, log = () => {}, memoryDomain = 'memory.omniaos.ai', panelDomain = 'memorypanel.omniaos.ai',
+  store, auth, closeSessions, closeSpace = () => 0, aliases, auditSnapshot = () => ({ total: 0, recent: [] }), viewer, log = () => {}, memoryDomain = 'memory.omniaos.ai', panelDomain = 'memorypanel.omniaos.ai',
 }) {
   const newToken = () => `omnia_${randomBytes(32).toString('base64url')}`;
   const commands = (token) => ({
@@ -204,33 +206,51 @@ export function createPanelApi({
       if (p === '/api/admin/tokens' && req.method === 'GET') return send(200, { tokens: store.allTokens() });
       if (p === '/api/admin/spaces' && req.method === 'GET') return send(200, { spaces: viewer ? await viewer.catalog() : [] });
       if (p === '/api/admin/namespaces' && req.method === 'GET') {
-        const origin = new Map((aliases ? aliases.list() : []).map((a) => [a.namespace, a.origin]));
+        const origin = new Map((aliases ? aliases.list('mem0') : []).map((x) => [x.name, x.origin]));
         return send(200, { namespaces: (viewer ? await viewer.namespaceRows() : []).map((row) => ({ ...row, origin: origin.get(row.namespace) ?? null })) });
+      }
+      if (p === '/api/admin/projects' && req.method === 'GET') {
+        const origin = new Map((aliases ? aliases.list('kb') : []).map((x) => [x.name, x.origin]));
+        return send(200, { projects: (viewer ? await viewer.projectRows() : []).map((row) => ({ namespace: row.name, count: null, space: row.space, aliased: row.aliased, origin: origin.get(row.name) ?? null })) });
       }
       if (p === '/api/admin/aliases' && req.method === 'PUT') {
         if (!aliases || !aliases.writable) return send(503, { error: 'sin_archivo_de_usuarios', detail: 'Falta el archivo de datos del servidor' });
         const b = await readJson(req);
+        const kind = b.kind === 'kb' ? 'kb' : 'mem0';
         try {
-          const before = aliases.set(String(b.namespace), String(b.space));
-          const cut = closeSpace(b.space) + (before ? closeSpace(before) : 0);
-          audit('alias', b.namespace, { space: b.space, antes: before, sesiones_cerradas: cut });
+          const before = aliases.set(kind, String(b.namespace), String(b.space));
+          // Mem0 ata la conexion a un namespace: hay que reabrirla. En Basic Memory el proyecto se revisa en cada mensaje.
+          const cut = kind === 'mem0' ? closeSpace(b.space) + (before ? closeSpace(before) : 0) : 0;
+          audit('alias', b.namespace, { kind, space: b.space, antes: before, sesiones_cerradas: cut });
           return send(200, { ok: true, sesiones_cerradas: cut });
         } catch (e) {
-          if (e.message === 'alias_de_coolify') return send(409, { error: 'alias_de_coolify', detail: 'Ese alias viene de ACCESS_NAMESPACE_ALIASES (Coolify)' });
+          if (e.message === 'alias_de_coolify') return send(409, { error: 'alias_de_coolify', detail: 'Ese alias viene de Coolify' });
           return send(400, { error: 'invalido', detail: String(e.message).slice(0, 160) });
         }
       }
       const aliasDel = /^\/api\/admin\/aliases\/([a-z0-9_-]{1,32})$/.exec(p);
       if (aliasDel && req.method === 'DELETE') {
         if (!aliases || !aliases.writable) return send(503, { error: 'sin_archivo_de_usuarios' });
+        const kind = url.searchParams.get('kind') === 'kb' ? 'kb' : 'mem0';
         try {
-          const before = aliases.remove(aliasDel[1]);
-          const cut = closeSpace(before);
-          audit('quitar_alias', aliasDel[1], { antes: before, sesiones_cerradas: cut });
+          const before = aliases.remove(kind, aliasDel[1]);
+          const cut = kind === 'mem0' ? closeSpace(before) : 0;
+          audit('quitar_alias', aliasDel[1], { kind, antes: before, sesiones_cerradas: cut });
           return send(200, { ok: true, sesiones_cerradas: cut });
         } catch (e) {
           return e.message === 'alias_de_coolify' ? send(409, { error: 'alias_de_coolify' }) : send(404, { error: 'no_existe' });
         }
+      }
+      if (p === '/api/admin/settings' && req.method === 'GET') {
+        return send(200, { enforce: aliases ? aliases.enforce : false, enforcedByEnv: aliases ? aliases.enforcedByEnv : false, wouldDeny: auditSnapshot() });
+      }
+      if (p === '/api/admin/settings' && req.method === 'PUT') {
+        if (!aliases || !aliases.writable) return send(503, { error: 'sin_archivo_de_usuarios' });
+        const b = await readJson(req);
+        if (typeof b.enforce !== 'boolean') return send(400, { error: 'invalido', detail: 'enforce debe ser verdadero o falso' });
+        try { aliases.setEnforce(b.enforce); } catch (e) { return send(409, { error: e.message === 'forzado_por_coolify' ? 'forzado_por_coolify' : 'interno' }); }
+        audit('modo_permisos', 'enforce', { enforce: b.enforce });
+        return send(200, { ok: true, enforce: aliases.enforce });
       }
       const adminToken = /^\/api\/admin\/tokens\/([A-Za-z0-9:_.-]+)$/.exec(p);
       if (adminToken && req.method === 'DELETE') {
