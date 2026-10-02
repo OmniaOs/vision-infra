@@ -1,7 +1,7 @@
 import { ApiError } from './api-error'
 import { getCsrfToken } from './csrf-token-store'
 
-type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE'
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
 interface ErrorBody {
   error?: string

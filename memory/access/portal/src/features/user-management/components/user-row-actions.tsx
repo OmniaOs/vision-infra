@@ -22,7 +22,7 @@ export function UserRowActions({ user, isSelf, onAction }: UserRowActionsProps) 
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">
         <DropdownMenuLabel>{user.id}</DropdownMenuLabel>
-        {user.editable ? (
+        {user.origin !== 'admins' ? (
           <DropdownMenuItem onClick={() => onAction('edit', user)}>
             <Pencil /> Cambiar rol y espacios
           </DropdownMenuItem>

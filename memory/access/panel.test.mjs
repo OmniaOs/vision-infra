@@ -161,7 +161,7 @@ test('CAMBIO: nuevos permisos y se corta la sesion abierta de esa persona', asyn
   await cerrada;
   assert.equal((await call('mem.test', 'GET', '/whoami', newToken)).body.role, 'lectura');
   assert.equal((await panel('PATCH', '/api/admin/users/ana', ADM, { role: 'dios' })).status, 400);
-  assert.equal((await panel('PATCH', '/api/admin/users/envuser', ADM, { role: 'lectura' })).status, 409);
+  assert.equal((await panel('PATCH', '/api/admin/users/adm', ADM, { role: 'lectura' })).status, 409, 'el admin de emergencia no se edita aqui');
 });
 
 test('TOKENS: varios por persona, con ultimo uso; revocar uno corta sus conexiones y deja los demas', async () => {
@@ -234,7 +234,6 @@ test('TOKENS de Coolify: se ven, no se revocan aqui, y la persona puede tener to
 
 test('MIGRAR al portal: la persona de ACCESS_DEVS pasa a gestionarse aqui con el mismo token', async () => {
   assert.equal((await panel('POST', '/api/admin/users/adm/adopt', ADM)).status, 409, 'el admin de emergencia no se migra');
-  assert.equal((await panel('PATCH', '/api/admin/users/mem', ADM, { role: 'lectura' })).status, 409, 'antes: solo en Coolify');
   assert.equal((await panel('POST', '/api/admin/users/mem/adopt', ADM)).status, 200);
   assert.equal((await call('mem.test', 'GET', '/whoami', MEM)).body.dev, 'mem', 'el mismo token sigue valiendo');
   const r = await panel('PATCH', '/api/admin/users/mem', ADM, { role: 'miembro', spaces: ['int-frutal'] });

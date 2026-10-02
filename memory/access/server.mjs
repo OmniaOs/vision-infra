@@ -18,10 +18,11 @@ import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { createStore, storeFromLegacy, hashToken } from './users.mjs';
-import { checkKbRpc, checkMem0Connect, checkMem0Rpc, configureNamespaceAliases, parseRpc, spaceFromMem0 } from './policy.mjs';
+import { checkKbRpc, checkMem0Connect, checkMem0Rpc, parseRpc, spaceFromMem0 } from './policy.mjs';
 import { createPanelApi } from './panel.mjs';
 import { createAuth } from './auth.mjs';
 import { createViewerApi } from './viewer.mjs';
+import { createAliasStore } from './aliases.mjs';
 
 export { hashToken };
 
@@ -69,7 +70,7 @@ function readBody(req, limit = BODY_LIMIT) {
 export function createGateway({
   devs, store, routes, enforce = false, rateLimitPerMin = 1200,
   setupDir = path.join(HERE, 'setup'), panelDir = path.join(HERE, 'panel'), memoryDomain, failedAuthPerMin = 30,
-  portalFile, secureCookie = true, authOptions = {}, viewerOptions = {}, log = () => {},
+  portalFile, secureCookie = true, authOptions = {}, viewerOptions = {}, aliasFile, aliasEnv = '', log = () => {},
 }) {
   const users = store || storeFromLegacy(devs || new Map());
   const setupFiles = { '/setup': 'connect.ps1', '/setup.sh': 'connect.sh' };
@@ -127,6 +128,13 @@ export function createGateway({
     return n;
   }
 
+  /** Corta las conexiones SSE ligadas a un espacio (cuando cambia a que namespace corresponde). */
+  function closeSpace(space) {
+    let n = 0;
+    for (const [sid, s] of sessions) if (s.space === space) { s.res.destroy(); sessions.delete(sid); n++; }
+    return n;
+  }
+
   /** Cierra las sesiones de quien ya no existe o cambio de rol/espacios. */
   function sweepSessions() {
     for (const [sid, s] of sessions) {
@@ -140,9 +148,10 @@ export function createGateway({
   }
 
   const auth = createAuth({ file: portalFile, secureCookie, ...authOptions });
+  const aliasStore = createAliasStore({ file: aliasFile, envText: aliasEnv, log });
   const viewer = createViewerApi({ routes, store: users, log, ...viewerOptions });
   const panelApi = createPanelApi({
-    store: users, auth, closeSessions, log, viewer,
+    store: users, auth, closeSessions, closeSpace, aliases: aliasStore, log, viewer,
     memoryDomain: memoryDomain || (routes.find((r) => r.name === 'mem0')?.hosts[0]) || 'memory.omniaos.ai',
     panelDomain: routes.find((r) => r.name === 'panel')?.hosts[0] || 'memorypanel.omniaos.ai',
   });
@@ -400,7 +409,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     log: (e) => console.log(JSON.stringify({ t: new Date().toISOString(), ...e })),
   });
   if (store.size === 0) console.error('AVISO: no hay usuarios, todo pedido dara 401.');
-  configureNamespaceAliases(process.env.ACCESS_NAMESPACE_ALIASES); // lanza si hay un alias invalido
   const enforce = process.env.ACCESS_ENFORCE === '1';
   console.error(`politicas: ${enforce ? 'ACTIVAS (se bloquea)' : 'en AUDITORIA (solo se registra lo que se denegaria)'}`);
   const routes = routesFromEnv(process.env);
@@ -409,6 +417,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   }
   const port = Number(process.env.PORT || 8080);
   createGateway({ store, routes, enforce, portalFile: process.env.ACCESS_PORTAL_FILE,
+    aliasFile: process.env.ACCESS_ALIASES_FILE, aliasEnv: process.env.ACCESS_NAMESPACE_ALIASES,
     viewerOptions: { qdrantUrl: process.env.QDRANT_URL, qdrantCollection: process.env.QDRANT_COLLECTION, qdrantKey: process.env.QDRANT_API_KEY }, log: (e) => console.log(JSON.stringify(e)) })
     .listen(port, () => console.error(`access gateway en :${port} (${store.size} usuarios)`));
 }

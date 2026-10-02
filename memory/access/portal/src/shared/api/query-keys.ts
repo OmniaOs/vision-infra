@@ -10,5 +10,7 @@ export const queryKeys = {
   notes: (project: string) => ['notes', 'tree', project] as const,
   note: (project: string, permalink: string) => ['notes', 'note', project, permalink] as const,
   graphSpaces: ['graph', 'spaces'] as const,
+  spaceCatalog: ['spaces', 'catalog'] as const,
+  namespaces: ['spaces', 'namespaces'] as const,
   memories: (space: string) => ['graph', 'memories', space] as const,
 }

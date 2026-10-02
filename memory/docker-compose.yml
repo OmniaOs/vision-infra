@@ -88,6 +88,8 @@ services:
       - ACCESS_ENFORCE=${ACCESS_ENFORCE:-}
       # Namespaces antiguos de Mem0 tratados como un espacio, sin mover datos: `vision-infra=proy-vision-infra,frutal=int-frutal`.
       - ACCESS_NAMESPACE_ALIASES=${ACCESS_NAMESPACE_ALIASES:-}
+      # Alias gestionados desde el portal (sin redeploy). Vive en el volumen de datos.
+      - ACCESS_ALIASES_FILE=/data/aliases.json
       # El grafo del portal lee los textos de las memorias directo de Qdrant (red interna).
       - QDRANT_URL=http://mem0_store:6333
       # Personas dadas de alta desde el panel (altas y bajas sin redeploy). Vive en un volumen.

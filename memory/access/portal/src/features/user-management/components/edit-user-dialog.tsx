@@ -41,7 +41,9 @@ export function EditUserDialog({ user, onClose }: EditUserDialogProps) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Permisos de {user?.id}</DialogTitle>
-          <DialogDescription>Los cambios se aplican al momento, sin reiniciar nada.</DialogDescription>
+          <DialogDescription>
+            Los cambios se aplican al momento, sin reiniciar nada.{user?.origin === 'env' ? ' Al guardar, esta persona pasa a gestionarse desde el portal y conserva su mismo token.' : ''}
+          </DialogDescription>
         </DialogHeader>
         <UserPermissionsFields idPrefix="edit-user" role={permissions.role} spaces={permissions.spaces} onChange={setPermissions} />
         {isError ? (

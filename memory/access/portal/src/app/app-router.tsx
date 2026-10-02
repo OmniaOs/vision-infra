@@ -9,6 +9,7 @@ import { ApplicationShell } from '@/features/application-shell/components/applic
 import { NotFoundPage } from '@/features/application-shell/pages/not-found-page'
 import { MemoryGraphPage } from '@/features/memory-graph/pages/memory-graph-page'
 import { NotesPage } from '@/features/notes-explorer/pages/notes-page'
+import { SpaceManagementPage } from '@/features/space-management/pages/space-management-page'
 import { TokenManagementPage } from '@/features/token-management/pages/token-management-page'
 import { UserManagementPage } from '@/features/user-management/pages/user-management-page'
 import { HomeRedirect } from './home-redirect'
@@ -29,6 +30,7 @@ export function AppRouter() {
               <Route path="/account" element={<AccountSettingsPage />} />
               <Route element={<RequireAdminRoute />}>
                 <Route path="/people" element={<UserManagementPage />} />
+                <Route path="/spaces" element={<SpaceManagementPage />} />
               </Route>
               <Route path="*" element={<NotFoundPage />} />
             </Route>

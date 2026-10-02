@@ -10,7 +10,7 @@
 // sus espacios, cliente solo el suyo. Basic Memory se llama con `project` siempre fijado por el servidor, y un
 // identificador que apunte a otro proyecto (memory://...) se rechaza.
 
-import { access, mem0Namespace, spaceFromKbProject, spaceFromMem0, SPACE_RE } from './policy.mjs';
+import { access, listNamespaceAliases, mem0Namespace, spaceFromKbProject, spaceFromMem0, SPACE_RE } from './policy.mjs';
 import { callMcpTool } from './mcp-client.mjs';
 import { analyzeMemories } from './cluster.mjs';
 
@@ -186,6 +186,35 @@ export function createViewerApi({ routes, store, qdrantUrl, qdrantCollection, qd
     return send(res, 200, { space, total: data.memories.length, ...data });
   }
 
+  const safeCounts = () => cached('counts', countByNamespace).catch(() => new Map());
+
+  /** Para administrar: cada namespace de Mem0 con cuantas memorias tiene y a que espacio corresponde (null = sin asignar). */
+  async function namespaceRows() {
+    const counts = await safeCounts();
+    const aliased = new Set(listNamespaceAliases().map(([ns]) => ns));
+    return [...new Set([...counts.keys(), ...aliased])]
+      .filter((ns) => LEGACY_NS_RE.test(ns))
+      .map((namespace) => ({ namespace, count: counts.get(namespace) ?? 0, space: spaceFromMem0(namespace), aliased: aliased.has(namespace) }))
+      .sort((a, b) => b.count - a.count || a.namespace.localeCompare(b.namespace));
+  }
+
+  /** Espacios que ya existen en algun sitio (memorias, notas, alias o personas): lo que se puede asignar a alguien. */
+  async function catalog() {
+    const counts = await safeCounts();
+    const ids = new Set(['global']);
+    for (const ns of counts.keys()) { const space = spaceFromMem0(ns); if (space) ids.add(space); }
+    for (const [, space] of listNamespaceAliases()) ids.add(space);
+    for (const user of store.all()) for (const space of user.spaces) ids.add(space);
+    const notes = new Set();
+    try {
+      for (const project of (await kbCall('list_memory_projects', { output_format: 'json' }))?.projects || []) {
+        const space = spaceFromKbProject(project.name);
+        if (space) { ids.add(space); notes.add(space); }
+      }
+    } catch { /* sin Basic Memory: se muestran los demas */ }
+    return [...ids].sort().map((id) => ({ id, memories: counts.get(mem0Namespace(id)) ?? 0, hasNotes: notes.has(id) }));
+  }
+
   /** Devuelve true si la ruta era suya. */
   async function handle(req, res, url, actor) {
     const p = url.pathname;
@@ -205,5 +234,5 @@ export function createViewerApi({ routes, store, qdrantUrl, qdrantCollection, qd
     return true;
   }
 
-  return { handle };
+  return { handle, namespaceRows, catalog };
 }

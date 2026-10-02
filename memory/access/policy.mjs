@@ -13,21 +13,35 @@ export const ROLES = ['admin', 'miembro', 'lectura', 'cliente'];
 let toSpace = new Map(); // namespace antiguo -> espacio
 let toNamespace = new Map(); // espacio -> namespace antiguo
 
-/** Texto `antiguo=espacio,antiguo2=espacio2`. Lanza si algo no es valido (mejor no arrancar que abrir un hueco). */
-export function configureNamespaceAliases(text) {
-  const spaces = new Map(); const namespaces = new Map();
+/** Texto `antiguo=espacio,antiguo2=espacio2` -> [[antiguo, espacio]]. Lanza si algo no es valido. */
+export function parseNamespaceAliases(text) {
+  const out = [];
   for (const raw of String(text || '').split(/[\n,]+/)) {
     const entry = raw.trim();
     if (!entry || entry.startsWith('#')) continue;
     const [legacy, space, extra] = entry.split('=').map((x) => x.trim());
+    out.push([legacy, space, extra, entry]);
+  }
+  return out.map(([legacy, space, extra, entry]) => {
     if (extra !== undefined || !/^[a-z0-9][a-z0-9_-]{0,31}$/.test(legacy || '')) throw new Error(`alias invalido: "${entry.slice(0, 40)}"`);
     if (!SPACE_RE.test(space || '') || space === 'global') throw new Error(`alias invalido: ${legacy} -> ${space} (el destino debe ser un espacio proy-/int-/cli-)`);
     if (legacy === 'omnia-global' || SPACE_RE.test(legacy)) throw new Error(`alias invalido: ${legacy} ya es un nombre de espacio`);
+    return [legacy, space];
+  });
+}
+
+/** Aplica los alias (reemplaza a los anteriores). Lanza si hay uno invalido o repetido: mejor no aplicar que abrir un hueco. */
+export function configureNamespaceAliases(text) {
+  const spaces = new Map(); const namespaces = new Map();
+  for (const [legacy, space] of parseNamespaceAliases(text)) {
     if (spaces.has(legacy) || namespaces.has(space)) throw new Error(`alias repetido: ${legacy} / ${space}`);
     spaces.set(legacy, space); namespaces.set(space, legacy);
   }
   toSpace = spaces; toNamespace = namespaces;
 }
+
+/** Alias vigentes: [[namespace antiguo, espacio]]. */
+export const listNamespaceAliases = () => [...toSpace];
 
 export const mem0Namespace = (space) => (space === 'global' ? 'omnia-global' : toNamespace.get(space) ?? space);
 export const spaceFromMem0 = (ns) => {

@@ -130,6 +130,17 @@ instante las conexiones abiertas de ese token y deja funcionando los demás.
   HTML en bruto, filtra enlaces (solo http/https/mailto) y no carga imágenes; React escapa el texto de las memorias.
 - **Por qué Qdrant:** al hacer persistentes las bases de OpenMemory, su SQL (lista y categorías) arrancó vacío mientras los textos seguían en Qdrant. Las memorias antiguas no tienen categoría: se agrupan por mes. Las nuevas sí traen categoría.
 
+## Espacios y alias (todo desde el portal)
+
+- **Espacios:** página admin que lista cada namespace de Mem0 con cuántas memorias tiene y a qué espacio corresponde. «Asignar»
+  decide el espacio de un namespace antiguo (uno existente o uno nuevo con prefijo) **sin mover ni reescribir memorias** y sin
+  redeploy. Se guarda en `ACCESS_ALIASES_FILE` (`/data/aliases.json`); los de `ACCESS_NAMESPACE_ALIASES` (Coolify) se respetan
+  pero solo se editan allí. Cambiar un alias corta las conexiones MCP de ese espacio para que se reabran con el permiso nuevo.
+- **Asignar espacios a personas:** el selector ofrece primero los espacios que ya existen (con su número de memorias y si tienen
+  notas) y deja crear uno nuevo. Un cliente solo ve los `cli-`.
+- **Editar a cualquiera:** al cambiar el rol o los espacios de una persona de `ACCESS_DEVS`, pasa sola al portal y conserva su
+  mismo token. Solo el acceso de emergencia (`ACCESS_ADMINS`) no se edita.
+
 ## Dar de alta a un dev (admin, ~1 minuto)
 
 ```bash

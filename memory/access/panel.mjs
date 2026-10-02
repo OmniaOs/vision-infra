@@ -21,6 +21,10 @@
 //   GET|POST /api/admin/users/:id/tokens    ver o crear tokens de una persona
 //   POST   /api/admin/users/:id/tokens/revoke-all   revocar todos los del portal de una persona
 //   DELETE /api/admin/tokens/:tid           revocar cualquiera del portal
+//   GET    /api/admin/spaces                espacios que ya existen (para asignarlos a personas)
+//   GET    /api/admin/namespaces            namespaces de Mem0 con su conteo y a que espacio corresponden
+//   PUT    /api/admin/aliases {namespace, space}   asignar un namespace antiguo a un espacio (sin redeploy)
+//   DELETE /api/admin/aliases/:namespace    quitar esa asignacion
 //   POST   /api/admin/users/:id/adopt       migrar una persona de ACCESS_DEVS al portal (mismo token)
 //   POST   /api/admin/users/:id/invite      invitacion nueva (alta o restablecer contrasena)
 //   DELETE /api/admin/users/:id             baja inmediata
@@ -64,7 +68,7 @@ const publicUser = (u, auth, tokens = []) => {
 };
 
 export function createPanelApi({
-  store, auth, closeSessions, viewer, log = () => {}, memoryDomain = 'memory.omniaos.ai', panelDomain = 'memorypanel.omniaos.ai',
+  store, auth, closeSessions, closeSpace = () => 0, aliases, viewer, log = () => {}, memoryDomain = 'memory.omniaos.ai', panelDomain = 'memorypanel.omniaos.ai',
 }) {
   const newToken = () => `omnia_${randomBytes(32).toString('base64url')}`;
   const commands = (token) => ({
@@ -198,6 +202,36 @@ export function createPanelApi({
         return send(200, { users: store.all().map((u) => publicUser(u, auth, store.tokensOf(u.id))).sort((a, b) => a.id.localeCompare(b.id)) });
       }
       if (p === '/api/admin/tokens' && req.method === 'GET') return send(200, { tokens: store.allTokens() });
+      if (p === '/api/admin/spaces' && req.method === 'GET') return send(200, { spaces: viewer ? await viewer.catalog() : [] });
+      if (p === '/api/admin/namespaces' && req.method === 'GET') {
+        const origin = new Map((aliases ? aliases.list() : []).map((a) => [a.namespace, a.origin]));
+        return send(200, { namespaces: (viewer ? await viewer.namespaceRows() : []).map((row) => ({ ...row, origin: origin.get(row.namespace) ?? null })) });
+      }
+      if (p === '/api/admin/aliases' && req.method === 'PUT') {
+        if (!aliases || !aliases.writable) return send(503, { error: 'sin_archivo_de_usuarios', detail: 'Falta el archivo de datos del servidor' });
+        const b = await readJson(req);
+        try {
+          const before = aliases.set(String(b.namespace), String(b.space));
+          const cut = closeSpace(b.space) + (before ? closeSpace(before) : 0);
+          audit('alias', b.namespace, { space: b.space, antes: before, sesiones_cerradas: cut });
+          return send(200, { ok: true, sesiones_cerradas: cut });
+        } catch (e) {
+          if (e.message === 'alias_de_coolify') return send(409, { error: 'alias_de_coolify', detail: 'Ese alias viene de ACCESS_NAMESPACE_ALIASES (Coolify)' });
+          return send(400, { error: 'invalido', detail: String(e.message).slice(0, 160) });
+        }
+      }
+      const aliasDel = /^\/api\/admin\/aliases\/([a-z0-9_-]{1,32})$/.exec(p);
+      if (aliasDel && req.method === 'DELETE') {
+        if (!aliases || !aliases.writable) return send(503, { error: 'sin_archivo_de_usuarios' });
+        try {
+          const before = aliases.remove(aliasDel[1]);
+          const cut = closeSpace(before);
+          audit('quitar_alias', aliasDel[1], { antes: before, sesiones_cerradas: cut });
+          return send(200, { ok: true, sesiones_cerradas: cut });
+        } catch (e) {
+          return e.message === 'alias_de_coolify' ? send(409, { error: 'alias_de_coolify' }) : send(404, { error: 'no_existe' });
+        }
+      }
       const adminToken = /^\/api\/admin\/tokens\/([A-Za-z0-9:_.-]+)$/.exec(p);
       if (adminToken && req.method === 'DELETE') {
         const [status, body] = revokeTokenById(decodeURIComponent(adminToken[1]), actor.id);
@@ -248,7 +282,9 @@ export function createPanelApi({
         return send(200, { ok: true, aviso: 'Ya se gestiona desde el portal. Puedes quitar su linea de ACCESS_DEVS en Coolify.' });
       }
 
-      if (target.origin !== 'file') return send(409, { error: 'gestionado_por_variable_de_entorno', detail: 'Se cambia en Coolify (ACCESS_DEVS / ACCESS_ADMINS) o migrala al portal' });
+      // Una persona de ACCESS_DEVS pasa sola al portal al cambiarle el rol o los espacios (conserva su token).
+      if (target.origin === 'env' && req.method === 'PATCH') { store.adoptEnvUser(id); audit('migrar_al_portal', id); }
+      else if (target.origin !== 'file') return send(409, { error: 'gestionado_por_variable_de_entorno', detail: 'Se cambia en Coolify (ACCESS_DEVS / ACCESS_ADMINS) o migrala al portal' });
       const list = store.fileUsers();
       const idx = list.findIndex((u) => u.id === id);
       if (idx < 0) return send(404, { error: 'no_existe' });

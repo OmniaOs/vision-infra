@@ -6,6 +6,7 @@ import { buildSpace, SPACE_KIND_LABEL, SPACE_NAME_PATTERN, type SpaceKind } from
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
+import { useSpaceCatalog } from '@/features/space-management/hooks/use-space-queries'
 
 interface SpacePickerProps {
   value: string[]
@@ -19,6 +20,9 @@ export function SpacePicker({ value, onChange, allowedKinds }: SpacePickerProps)
   const [name, setName] = useState('')
   const [error, setError] = useState<string>()
   const activeKind = allowedKinds.includes(kind) ? kind : allowedKinds[0]
+  const { data: catalog = [] } = useSpaceCatalog()
+  // Solo los que aun no tiene y que su rol admite (un cliente solo puede tener espacios cli-).
+  const existing = catalog.filter((space) => space.id !== 'global' && !value.includes(space.id) && (allowedKinds.length > 1 || space.id.startsWith('cli-')))
 
   const add = () => {
     const cleaned = name.trim().toLowerCase()
@@ -38,6 +42,20 @@ export function SpacePicker({ value, onChange, allowedKinds }: SpacePickerProps)
 
   return (
     <div className="space-y-3">
+      {existing.length > 0 ? (
+        <Select value="" onValueChange={(space) => onChange([...value, space])}>
+          <SelectTrigger aria-label="Agregar un espacio existente">
+            <SelectValue placeholder="Agregar un espacio que ya existe…" />
+          </SelectTrigger>
+          <SelectContent>
+            {existing.map((space) => (
+              <SelectItem key={space.id} value={space.id}>
+                {space.id} · {space.memories} memorias{space.hasNotes ? ' · con notas' : ''}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : null}
       <div className="flex gap-2">
         <Select value={activeKind} onValueChange={(next) => setKind(next as SpaceKind)} disabled={allowedKinds.length === 1}>
           <SelectTrigger className="w-36 shrink-0" aria-label="Tipo de espacio">

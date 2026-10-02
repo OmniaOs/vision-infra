@@ -10,7 +10,7 @@ RUN npm run build
 
 FROM node:22-alpine
 WORKDIR /app
-COPY server.mjs policy.mjs users.mjs panel.mjs auth.mjs viewer.mjs mcp-client.mjs cluster.mjs ./
+COPY server.mjs policy.mjs users.mjs panel.mjs auth.mjs viewer.mjs mcp-client.mjs cluster.mjs aliases.mjs ./
 COPY --from=portal /portal/dist ./panel
 COPY setup ./setup
 # Carpeta de datos (archivo de usuarios del panel). Se crea con el dueno correcto para que un
