@@ -39,7 +39,7 @@ function fakeBackend() {
         }
         const user = q.filter.must[0].match.value;
         const page = q.offset === 'p2' ? 2 : 1;
-        const points = Array.from({ length: page === 1 ? 100 : 3 }, (_, i) => ({ id: `m${page}-${i}`, payload: { data: `memoria ${page}-${i}`, user_id: user, created_at: '2026-09-01T00:00:00Z' }, vector: i % 2 ? [0, 1, 0.1 * (i % 5)] : [1, 0.1 * (i % 5), 0] }));
+        const points = Array.from({ length: page === 1 ? 100 : 3 }, (_, i) => ({ id: `m${page}-${i}`, payload: { data: `${i % 2 ? 'respaldo qdrant cifrado' : 'coolify dominio traefik'} ${page}-${i}`, user_id: user, created_at: '2026-09-01T00:00:00Z' }, vector: i % 2 ? [0, 1, 0.1 * (i % 5)] : [1, 0.1 * (i % 5), 0] }));
         if (page === 2) points.push({ id: 'ajena', payload: { data: 'de otro espacio', user_id: 'cli-weritas' } }); // simula un filtro roto
         res.writeHead(200, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ result: { points, next_page_offset: page === 1 ? 'p2' : null } }));
