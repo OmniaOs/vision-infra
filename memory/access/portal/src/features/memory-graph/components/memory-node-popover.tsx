@@ -30,8 +30,12 @@ interface MemoryNodePopoverProps {
 export function MemoryNodePopover({ node, anchor, bounds, pinned, related, topicLabel, onJump, onClose }: MemoryNodePopoverProps) {
   const [copied, setCopied] = useState(false)
   const left = Math.min(Math.max(anchor.x, CARD_WIDTH / 2 + MARGIN), Math.max(bounds.width - CARD_WIDTH / 2 - MARGIN, CARD_WIDTH / 2 + MARGIN))
-  const below = anchor.y < (pinned ? 260 : 150)
+  // La tarjeta fijada va por donde haya mas sitio y nunca se sale del lienzo: si no cabe, se desplaza por dentro.
+  const spaceAbove = anchor.y - anchor.radius - GAP - MARGIN
+  const spaceBelow = bounds.height - anchor.y - anchor.radius - GAP - MARGIN
+  const below = pinned ? spaceBelow > spaceAbove : anchor.y < 150
   const top = below ? anchor.y + anchor.radius + GAP : anchor.y - anchor.radius - GAP
+  const maxHeight = Math.max(160, below ? spaceBelow : spaceAbove)
   const tail = Math.min(Math.max(anchor.x - (left - CARD_WIDTH / 2), 18), CARD_WIDTH - 18)
   const memory = node.memory
 
@@ -50,7 +54,8 @@ export function MemoryNodePopover({ node, anchor, bounds, pinned, related, topic
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ type: 'spring', stiffness: 420, damping: 30 }}
-      style={{ left, top, width: CARD_WIDTH, translateX: '-50%', translateY: below ? '0%' : '-100%', transformOrigin: below ? 'top center' : 'bottom center' }}
+      style={{ left, top, width: CARD_WIDTH, maxHeight, overflowY: pinned ? 'auto' : 'hidden', translateX: '-50%', translateY: below ? '0%' : '-100%', transformOrigin: below ? 'top center' : 'bottom center' }}
+      onClick={(event) => event.stopPropagation()}
       className={cn('absolute z-20 rounded-2xl border bg-card/95 p-4 text-sm shadow-2xl shadow-black/40 backdrop-blur-md', pinned ? 'pointer-events-auto' : 'pointer-events-none')}
     >
       <span

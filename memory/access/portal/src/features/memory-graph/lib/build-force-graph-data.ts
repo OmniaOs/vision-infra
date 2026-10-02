@@ -13,7 +13,9 @@ export function buildForceGraphData(response: MemoriesResponse): ForceGraphData 
   if (orphans.length > 0) topics.push({ ...UNASSIGNED, size: orphans.length })
 
   const colorOf = new Map(topics.map((topic, index) => [topic.id, topic.id === UNASSIGNED_TOPIC_ID ? UNASSIGNED_COLOR : topicColor(index)]))
-  const nodes: ForceNode[] = topics.map((topic) => ({
+  // Los nucleos van fijos en un anillo: el diagrama siempre queda ordenado y cabe en pantalla. Solo las memorias flotan.
+  const ring = topics.length === 1 ? 0 : 150 + topics.length * 34
+  const nodes: ForceNode[] = topics.map((topic, index) => ({
     id: `topic:${topic.id}`,
     kind: 'topic',
     label: topic.label,
@@ -21,6 +23,8 @@ export function buildForceGraphData(response: MemoriesResponse): ForceGraphData 
     color: colorOf.get(topic.id)!,
     radius: 9 + Math.min(11, Math.sqrt(topic.size) * 1.6),
     topic,
+    fx: Math.cos((index / topics.length) * 2 * Math.PI - Math.PI / 2) * ring,
+    fy: Math.sin((index / topics.length) * 2 * Math.PI - Math.PI / 2) * ring,
   }))
   const links: ForceLink[] = []
   const known = new Set<string>()

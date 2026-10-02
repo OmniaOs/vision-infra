@@ -1,6 +1,6 @@
 import { AnimatePresence } from 'framer-motion'
 import { Network, Search } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { describeApiError } from '@/shared/api/describe-api-error'
 import { EmptyState } from '@/shared/components/empty-state'
@@ -32,6 +32,7 @@ export function MemoryGraphPage() {
   const [focusTopicId, setFocusTopicId] = useState<string>()
   const [anchor, setAnchor] = useState<NodeAnchor | null>(null)
   const [query, setQuery] = useState('')
+  const pressedAt = useRef<{ x: number; y: number } | null>(null)
 
   const graphData = useMemo(() => (data ? buildForceGraphData(data) : undefined), [data])
   const matches = useMemo(() => (data ? matchMemories(data, query) : null), [data, query])
@@ -72,6 +73,14 @@ export function MemoryGraphPage() {
     if (id) graph.current?.focusNode(id)
   }
 
+  // El clic lo resuelve la pagina con el nodo que ya esta bajo el cursor (el de la vista previa). Un arrastre
+  // (mover el lienzo) no cuenta como clic.
+  const handleStageClick = (event: MouseEvent<HTMLDivElement>) => {
+    const start = pressedAt.current
+    if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 5) return
+    handleSelect(hoveredId)
+  }
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -105,7 +114,11 @@ export function MemoryGraphPage() {
             </div>
           </div>
 
-          <div ref={stageRef} className="relative h-[calc(100vh-19rem)] min-h-[30rem] overflow-hidden rounded-2xl border bg-card bg-dot-grid">
+          <div
+            ref={stageRef}
+            onPointerDown={(event) => (pressedAt.current = { x: event.clientX, y: event.clientY })}
+            onClick={handleStageClick}
+            className="relative h-[calc(100vh-19rem)] min-h-[30rem] overflow-hidden rounded-2xl border bg-card bg-dot-grid">
             {width > 0 ? (
               <MemoryForceGraph
                 ref={graph}
@@ -117,7 +130,6 @@ export function MemoryGraphPage() {
                 focusTopicId={focusTopicId}
                 matches={matches}
                 onHover={setHoveredId}
-                onSelect={handleSelect}
                 onAnchor={setAnchor}
               />
             ) : null}

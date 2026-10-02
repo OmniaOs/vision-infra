@@ -27,7 +27,6 @@ interface MemoryForceGraphProps {
   /** Ids de memorias que coinciden con la busqueda; `null` = sin busqueda. */
   matches: Set<string> | null
   onHover: (id: string | undefined) => void
-  onSelect: (id: string | undefined) => void
   onAnchor: (anchor: NodeAnchor | null) => void
 }
 
@@ -36,7 +35,7 @@ type FGLink = Omit<ForceLink, 'source' | 'target'> & { source: FGNode | string; 
 
 /** Grafo de fuerzas (canvas): temas como nucleos, memorias alrededor, enlaces entre memorias parecidas. */
 export const MemoryForceGraph = forwardRef<MemoryForceGraphHandle, MemoryForceGraphProps>(function MemoryForceGraph(
-  { data, width, height, selectedId, hoveredId, focusTopicId, matches, onHover, onSelect, onAnchor },
+  { data, width, height, selectedId, hoveredId, focusTopicId, matches, onHover, onAnchor },
   handle,
 ) {
   const graphRef = useRef<ForceGraphMethods<FGNode, FGLink> | undefined>(undefined)
@@ -55,12 +54,29 @@ export const MemoryForceGraph = forwardRef<MemoryForceGraphHandle, MemoryForceGr
   useEffect(() => {
     const graph = graphRef.current
     if (!graph) return
-    graph.d3Force('charge')?.strength((node: FGNode) => (node.kind === 'topic' ? -260 : -26))
+    graph.d3Force('charge')?.strength((node: FGNode) => (node.kind === 'topic' ? -60 : -42))
     const link = graph.d3Force('link') as unknown as { distance: (fn: (l: FGLink) => number) => unknown; strength: (fn: (l: FGLink) => number) => unknown } | undefined
-    link?.distance((l) => (l.kind === 'membership' ? 26 : 70))
-    link?.strength((l) => (l.kind === 'membership' ? 0.9 : 0.015))
+    link?.distance((l) => (l.kind === 'membership' ? 38 : 120))
+    link?.strength((l) => (l.kind === 'membership' ? 0.5 : 0.003))
     graph.d3ReheatSimulation()
   }, [graphData])
+
+  /** Encuadra todo con margen para las etiquetas (el encuadre de la libreria solo cuenta el centro de cada nodo). */
+  const fitAll = useCallback(
+    (ms = 500) => {
+      const graph = graphRef.current
+      const placed = graphData.nodes.filter((node) => Number.isFinite((node as FGNode).x)) as FGNode[]
+      if (!graph || placed.length === 0) return
+      const minX = Math.min(...placed.map((n) => n.x - n.radius * 2))
+      const maxX = Math.max(...placed.map((n) => n.x + n.radius * 2))
+      const minY = Math.min(...placed.map((n) => n.y - n.radius * 2))
+      const maxY = Math.max(...placed.map((n) => n.y + n.radius * 2 + (n.kind === 'topic' ? 34 : 0)))
+      const zoom = Math.min(width / Math.max(maxX - minX, 1), height / Math.max(maxY - minY, 1)) * 0.9
+      graph.centerAt((minX + maxX) / 2, (minY + maxY) / 2, ms)
+      graph.zoom(Math.min(Math.max(zoom, 0.3), 4), ms)
+    },
+    [graphData, width, height],
+  )
 
   useImperativeHandle(handle, () => ({
     focusNode: (id) => {
@@ -70,7 +86,7 @@ export const MemoryForceGraph = forwardRef<MemoryForceGraphHandle, MemoryForceGr
       graphRef.current?.zoom(Math.max(graphRef.current.zoom(), 2.2), 600)
     },
     zoomBy: (factor) => graphRef.current?.zoom(graphRef.current.zoom() * factor, 250),
-    fit: () => graphRef.current?.zoomToFit(500, 70),
+    fit: () => fitAll(),
   }))
 
   const dimmed = useCallback(
@@ -85,6 +101,8 @@ export const MemoryForceGraph = forwardRef<MemoryForceGraphHandle, MemoryForceGr
 
   const paintNode = useCallback(
     (node: FGNode, ctx: CanvasRenderingContext2D, scale: number) => {
+      // En los primeros cuadros la simulacion aun no les ha dado posicion: no hay nada que dibujar.
+      if (!Number.isFinite(node.x) || !Number.isFinite(node.y)) return
       const faded = dimmed(node)
       const active = node.id === selectedId || node.id === hoveredId
       ctx.globalAlpha = faded ? 0.14 : 1
@@ -134,6 +152,7 @@ export const MemoryForceGraph = forwardRef<MemoryForceGraphHandle, MemoryForceGr
   )
 
   const paintPointerArea = useCallback((node: FGNode, color: string, ctx: CanvasRenderingContext2D) => {
+    if (!Number.isFinite(node.x) || !Number.isFinite(node.y)) return
     ctx.fillStyle = color
     ctx.beginPath()
     // Area de toque mas generosa que el punto visible: seleccionar no debe exigir punteria.
@@ -189,17 +208,16 @@ export const MemoryForceGraph = forwardRef<MemoryForceGraphHandle, MemoryForceGr
       linkColor={linkColor as never}
       linkWidth={(link) => ((link as unknown as FGLink).kind === 'similarity' ? 0.9 : 0.6)}
       linkLineDash={(link) => ((link as unknown as FGLink).kind === 'similarity' ? [2, 2] : null)}
-      cooldownTime={4500}
+      warmupTicks={80}
+      cooldownTime={2500}
       d3VelocityDecay={0.32}
       onEngineStop={() => {
         if (fitted.current) return
         fitted.current = true
-        graphRef.current?.zoomToFit(600, 70)
+        fitAll(500)
       }}
       onRenderFramePost={trackAnchor}
       onNodeHover={(node) => onHover(node ? (node as FGNode).id : undefined)}
-      onNodeClick={(node) => onSelect((node as FGNode).id)}
-      onBackgroundClick={() => onSelect(undefined)}
       minZoom={0.3}
       maxZoom={8}
     />

@@ -45,6 +45,9 @@ export interface ForceNode {
   topic?: MemoryTopic
   x?: number
   y?: number
+  /** Posicion fija (los nucleos de los temas no se mueven). */
+  fx?: number
+  fy?: number
 }
 
 export interface ForceLink {
