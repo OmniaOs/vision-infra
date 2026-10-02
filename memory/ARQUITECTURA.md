@@ -74,8 +74,9 @@ reconecta solo cuando la sesión SSE muere. Con Watch Paths esto debería ser ra
 
 | Tarea | Cómo |
 |---|---|
-| **Alta** | `node memory/access/devs.mjs add <id>` → pegar la línea `id:hash` en `ACCESS_DEVS` (Coolify, `memory-mem0`) → redeploy de `access` → mandar el comando por un canal de un solo uso (Vaultwarden/Bitwarden Send). |
-| **Baja** | Borrar su línea de `ACCESS_DEVS` y redeploy de `access`. Corta las dos rutas a la vez. |
+| **Alta** | Portal `memorypanel.omniaos.ai` → Personas → Dar de alta: entrega una sola vez el token, el comando de conexión y un enlace para la contraseña del portal. Sin Coolify ni redeploy. |
+| **Baja / token perdido** | Portal → Personas o Tokens: revocar. Corta sus conexiones al instante (Mem0 y Basic Memory). Solo los tokens que siguen en `ACCESS_DEVS`/`ACCESS_ADMINS` de Coolify se quitan en Coolify. |
+| **Espacios, alias y bloqueo** | Portal → Espacios: asignar espacios a personas, alias de namespaces/proyectos y el interruptor «solo registrar / bloquear». Ver [`PERMISOS.md`](PERMISOS.md). |
 | **Rotar credencial de Basic Memory** | Generar contraseña con `tr -d '/+=\r\n'` (con `\r`), poner el hash apr1 en el label de `omnia-knowledge/deploy/docker-compose.yml`, el base64 en `KB_UPSTREAM_AUTH_B64`. |
 | **Verificar** | `memory/access/README.md` (comprobaciones con curl) y prueba de humo MCP. |
 | **Cambios en Coolify** | Dominios **con esquema y puerto** (`https://…:8420`). `omnia-knowledge` tiene Watch Paths `deploy/**`. |
@@ -122,7 +123,7 @@ del repo; escritura → `sync` → GitHub; el proyecto sobrevive a un redeploy.
 - [ ] **Dar de alta a los demás devs.**
 - [ ] **Limpieza del método anterior:** túnel SSH y `visiontunnel`, Vaultwarden (`vault/`), `memory/setup/windows.ps1`, `memory/tunnel.sh`, variables `OMNIA_MEMORY_SSH_*`, `OMNIA_KNOWLEDGE_BASICAUTH_B64`, spec `self-service-memory-tunnel-onboarding`. Solo tras una ventana de convivencia.
 - [ ] **Respaldo cifrado de Mem0** (construido y probado en local, sin activar): ver [`backup/README.md`](backup/README.md). **Bloqueado por acceso:** nadie del equipo tiene a mano el acceso a R2 para crear el bucket y el token (2026-10-01). Hasta entonces Mem0 sigue sin copia. Regla: no se hace nada destructivo (borrar namespaces, carga masiva) hasta que exista el primer respaldo.
-- [ ] **Permisos y separación de espacios** (decidido, sin construir): ver [`PERMISOS.md`](PERMISOS.md). **Carga masiva pausada** hasta construirlo.
+- [x] **Permisos y separación de espacios** (construido y en producción, en modo «solo registrar»): ver [`PERMISOS.md`](PERMISOS.md). Falta activar el bloqueo desde el portal cuando el aviso esté limpio.
 - [ ] Probar escrituras simultáneas a la misma nota de Basic Memory (sigue sin verificar).
 - [ ] Endurecimiento opcional: firewall de Alma para aceptar `knowledge.omniaos.ai` solo desde el servidor de Mem0.
 
@@ -136,7 +137,8 @@ del repo; escritura → `sync` → GitHub; el proyecto sobrevive a un redeploy.
 | [`backup/README.md`](backup/README.md) | Respaldo cifrado de Mem0: qué cubre, configuración y restauración. |
 | [`access/README.md`](access/README.md) | Operación del gateway: alta, baja, despliegue, verificación. |
 | [`access/server.mjs`](access/server.mjs), [`server.test.mjs`](access/server.test.mjs) | Código y pruebas (`node --test memory/access`). |
-| [`access/devs.mjs`](access/devs.mjs) | CLI de alta. |
+| [`access/devs.mjs`](access/devs.mjs) | CLI de emergencia (el alta normal es en el portal). |
+| [`PERMISOS.md`](PERMISOS.md), [`ESTRUCTURA-NOTAS.md`](ESTRUCTURA-NOTAS.md) | Roles y espacios; carpetas y encabezado de las notas. |
 | [`access/setup/`](access/setup/) | Scripts que el dev pega (`connect.ps1`, `connect.sh`). |
 | [`mcp-omnia-access.example.json`](mcp-omnia-access.example.json) | Bloque `.mcp.json` para cualquier repo. |
 | [`CONVENCION-DE-CONTENIDO.md`](CONVENCION-DE-CONTENIDO.md) | Qué escribir y dónde. |

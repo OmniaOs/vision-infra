@@ -169,6 +169,20 @@ Ejecuta los pasos en orden. No omitas pasos. No reordenes pasos.
    no lo dejes a medio escribir (restaura el contenido original si lo
    tenías en memoria).
 
+### Paso 5b — Instalar el bloque de memoria en AGENTS.md y CLAUDE.md
+
+Así el agente sabe, sin que nadie se lo recuerde, que debe leer la memoria al empezar, guardar incidencias, gaps,
+implementaciones y decisiones, y qué hacer si no está conectada. El texto vive en `agents-block.md` (junto a esta skill).
+
+1. Lee `agents-block.md`. Sustituye `{{MEM0_NS}}` por el namespace de la URL de `omnia-memory` y `{{SPACE}}` por el espacio
+   que le corresponde (el mismo nombre si ya es `proy-`/`int-`/`cli-`; si es un slug antiguo, el espacio del alias, p. ej.
+   `omnia` → `proy-omniapos`, `hr-omnia` → `int-frutal`; si no lo sabes, pregúntalo al usuario).
+2. En `AGENTS.md` y en `CLAUDE.md` del repo: si ya existe un bloque entre `<!-- omnia-memoria:inicio` y
+   `<!-- omnia-memoria:fin -->`, **reemplázalo entero**; si no, insértalo antes del primer separador `---` (o al final si
+   no hay). Si falta uno de los dos archivos, créalo solo con el bloque. No toques el resto del contenido.
+3. Si el `.mcp.json` tenía un slug antiguo sin alias en el portal, avisa: un usuario que no sea admin recibiría
+   `namespace_desconocido` al activarse el bloqueo.
+
 ### Paso 6 — Nunca hacer commit
 
 Esta skill solo edita el working tree. Nunca ejecuta `git add`, `git
