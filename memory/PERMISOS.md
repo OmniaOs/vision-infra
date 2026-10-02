@@ -13,7 +13,7 @@
 | Clientes | Se conectan directamente con su propio token, con **lectura y escritura**, solo a su espacio |
 | Roles internos | `admin`, `miembro` (por cliente/proyecto), `lectura` y acceso `global` para todos |
 | Mem0 | Filtro por namespace en el gateway (es robusto: el namespace va en la URL) |
-| Basic Memory | **Híbrido:** filtro en el gateway para lo interno; **instancia separada por cliente** que escribe |
+| Basic Memory | **Una sola instancia, un proyecto por espacio**, con el filtro del gateway blindado por pruebas y versión fija. Un contenedor dedicado solo por excepción contractual (ver «Decisión del 2026-10-02») |
 | Arranque | Frutal, Weritas y OmniaPOS (producto). Separación organizada en las dos memorias |
 | Carga masiva | **Pausada** hasta cerrar este documento y construir los pasos 1 a 3 |
 
@@ -36,9 +36,9 @@ notas internas sobre sí mismo.
 | Global | `omnia-global` (ya existe) | `global` |
 | OmniaPOS (producto) | `proy-omniapos` | `proy-omniapos` |
 | Frutal, interno | `int-frutal` | `int-frutal` |
-| Frutal, cliente | `cli-frutal` | instancia propia `cli-frutal` |
+| Frutal, cliente | `cli-frutal` | `cli-frutal` |
 | Weritas, interno | `int-weritas` | `int-weritas` |
-| Weritas, cliente | `cli-weritas` | instancia propia `cli-weritas` |
+| Weritas, cliente | `cli-weritas` | `cli-weritas` |
 
 Reglas de nombre: minúsculas, dígitos y `-`; prefijo obligatorio (`proy-`, `int-`, `cli-`); sin espacios.
 Un repo que es parte de un cliente (por ejemplo `frutal-hr`, `weritas-erpnext`) usa `int-<cliente>`,
@@ -74,6 +74,25 @@ namespace antiguo como ese espacio para los permisos y para el visor. Reglas: el
 el nombre nuevo de un espacio con alias **no** se puede usar (abriría un namespace vacío y aparte); una configuración
 inválida impide arrancar. Los repos nuevos usan directamente el nombre con prefijo (skill `memory-setup`).
 
+## Decisión del 2026-10-02: una sola instancia de Basic Memory
+
+Un contenedor por cliente no escala (1000 clientes = 1000 servicios, volúmenes y repos por mantener, actualizar y respaldar).
+En su lugar, **un solo Basic Memory con un proyecto por espacio** y el aislamiento descansa en el gateway, con tres controles:
+
+1. **Versión fija.** La imagen de Basic Memory no se actualiza sola.
+2. **Foto de herramientas** (`kb-tools.snapshot.json`, 21 herramientas con sus parámetros). Antes de actualizar la imagen:
+   `OMNIA_MEMORY_TOKEN=<admin> node memory/access/kb-tools-snapshot.mjs` compara la versión real con la foto y falla si hay
+   una herramienta o un parámetro nuevo. Las pruebas (`kb-version.test.mjs`) exigen que **toda** herramienta de la foto esté
+   en la lista blanca o denegada, y que todo parámetro de alcance (`project`, `project_id`, `workspace`, `search_all_projects`,
+   `memory://`, rutas con `..`, destinos) esté bloqueado o controlado. Esta prueba ya encontró `move_note.destination_folder`
+   y `is_directory`, que no estaban declarados.
+3. **Herramientas mínimas para clientes** (ver arriba).
+
+Un **contenedor dedicado** queda como excepción para quien lo exija por contrato (o por derecho de borrado total).
+
+**Sin medir:** si una sola instancia aguanta cientos de proyectos (cada uno es una carpeta vigilada e indexada). Medirlo antes
+de prometer cifras grandes; para las primeras decenas de clientes no debería ser un problema.
+
 ## Qué sigue sin resolverse (no lo doy por hecho)
 
 - **Respaldos de Mem0:** no hay copia automática; vive en volúmenes del servidor.
@@ -101,8 +120,8 @@ Un token = una persona = un rol + una lista de espacios. Ejemplo de entrada futu
   parámetro `project` de cada llamada. Hay que bloquear también `search_all_projects`, los listados
   de proyectos y `create/delete_memory_project` salvo para `admin`. Es un filtro y por tanto frágil:
   por eso no se usa para clientes.
-- **Basic Memory, cliente:** una instancia por cliente (servicio, volumen y repo propios). El token de
-  cliente solo enruta a su instancia; no existe ruta física hacia lo interno.
+- **Basic Memory, cliente:** mismo servicio, proyecto `cli-<cliente>`, con herramientas **mínimas** (solo buscar, leer, ver, listar,
+  actividad reciente, escribir y editar; sin `build_context`, `move_note`, `read_content`, `schema_*` ni `delete_note`).
 
 ## Avance (2026-10-01)
 
@@ -112,7 +131,7 @@ Un token = una persona = un rol + una lista de espacios. Ejemplo de entrada futu
 | 2. Panel de altas y bajas | **Construido, probado y desplegado:** portal con usuario y contraseña, personas, tokens múltiples con último uso y revocación |
 | 3. Visor de notas y grafo | **Construido y probado:** Notas (Basic Memory) y Grafo de memoria (Mem0), solo lectura y por espacio. Falta confirmar el formato de la REST de OpenMemory en producción |
 | 4. Reorganizar Basic Memory y migrar nombres | **Hecho el 2026-10-02 (aditivo):** proyectos `global`, `int-frutal` y `proy-omniapos` creados y las 3 notas copiadas (las originales siguen en `projects`). Mem0 **sin mover datos**: `ACCESS_NAMESPACE_ALIASES` hace que `vision-infra` cuente como `proy-vision-infra` |
-| 5. Instancias de cliente de Basic Memory | Pendiente |
+| 5. Blindaje del filtro de Basic Memory (reemplaza a las instancias por cliente) | **Hecho:** foto de herramientas, pruebas contra ella y herramientas mínimas para clientes |
 | 6. Activar el bloqueo y cargar | Pendiente |
 
 ## Orden de construcción
@@ -120,7 +139,7 @@ Un token = una persona = un rol + una lista de espacios. Ejemplo de entrada futu
 1. Gateway: roles y espacios por token, filtro de Mem0 y bloqueo de herramientas, **con pruebas automáticas**
    (incluyendo los intentos de salto entre espacios).
 2. Basic Memory interno: reorganizar el repo `omnia-knowledge` a un proyecto por espacio y filtrar `project`.
-3. Instancias de cliente de Basic Memory (Frutal y Weritas) y su enrutado desde el gateway.
+3. ~~Instancias de cliente de Basic Memory~~ Sustituido por el blindaje del filtro (ver «Decisión del 2026-10-02»).
 4. Migrar lo existente a los nombres nuevos (unas 40 entradas de Mem0 y 3 notas) y actualizar `memory-setup`
    para escribir `proy-<repo>`/`int-<cliente>` en el `.mcp.json`.
 5. Actualizar `MANUAL-ADMIN.md`, `MANUAL-DEV.md`, `WORKFLOW.md` y las skills con los nombres definitivos.
@@ -131,7 +150,7 @@ Un token = una persona = un rol + una lista de espacios. Ejemplo de entrada futu
 - **Cliente que escribe:** su contenido llega a un espacio que el equipo también lee. Conviene revisarlo
   antes de actuar sobre él; no se aplica ningún filtro de contenido.
 - **Datos personales de clientes:** la memoria no es un sistema de registros con garantías de borrado
-  individual. Si algún cliente exige derecho de borrado, su instancia separada permite eliminarlo entero.
+  individual. Si algún cliente exige derecho de borrado, un contenedor dedicado (excepción) permite eliminarlo entero.
 - **Respaldos:** Mem0 vive solo en volúmenes del servidor y no tiene copia automática. Resolver antes de
   que los clientes confíen su información.
 - **Alta de personas:** hoy cada alta requiere editar una variable y redesplegar. Con roles y espacios por

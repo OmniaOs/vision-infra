@@ -1,0 +1,255 @@
+{
+  "basic_memory_diagnostics": {
+    "params": {},
+    "required": []
+  },
+  "build_context": {
+    "params": {
+      "depth": "integer|null|string",
+      "max_related": "integer",
+      "output_format": "string",
+      "page": "integer",
+      "page_size": "integer",
+      "project": "null|string",
+      "project_id": "null|string",
+      "timeframe": "null|string",
+      "url": "string"
+    },
+    "required": [
+      "url"
+    ]
+  },
+  "create_memory_project": {
+    "params": {
+      "output_format": "string",
+      "project_name": "string",
+      "project_path": "string",
+      "set_default": "boolean",
+      "workspace": "null|string"
+    },
+    "required": [
+      "project_name",
+      "project_path"
+    ]
+  },
+  "delete_note": {
+    "params": {
+      "identifier": "string",
+      "is_directory": "boolean",
+      "output_format": "string",
+      "project": "null|string",
+      "project_id": "null|string"
+    },
+    "required": [
+      "identifier"
+    ]
+  },
+  "delete_project": {
+    "params": {
+      "delete_notes": "boolean",
+      "project_name": "string",
+      "workspace": "null|string"
+    },
+    "required": [
+      "project_name"
+    ]
+  },
+  "edit_note": {
+    "params": {
+      "content": "string",
+      "expected_replacements": "integer|null",
+      "find_text": "null|string",
+      "identifier": "string",
+      "metadata": "null|object",
+      "operation": "string",
+      "output_format": "string",
+      "project": "null|string",
+      "project_id": "null|string",
+      "replace_subsections": "boolean|null",
+      "section": "null|string",
+      "workspace": "null|string"
+    },
+    "required": [
+      "content",
+      "identifier",
+      "operation"
+    ]
+  },
+  "fetch": {
+    "params": {
+      "id": "string"
+    },
+    "required": [
+      "id"
+    ]
+  },
+  "list_directory": {
+    "params": {
+      "depth": "integer",
+      "dir_name": "string",
+      "file_name_glob": "null|string",
+      "output_format": "string",
+      "page": "integer",
+      "page_size": "integer",
+      "project": "null|string",
+      "project_id": "null|string",
+      "sort": "null|string"
+    },
+    "required": []
+  },
+  "list_memory_projects": {
+    "params": {
+      "output_format": "string"
+    },
+    "required": []
+  },
+  "list_workspaces": {
+    "params": {
+      "output_format": "string"
+    },
+    "required": []
+  },
+  "move_note": {
+    "params": {
+      "destination_folder": "null|string",
+      "destination_path": "string",
+      "identifier": "string",
+      "is_directory": "boolean",
+      "output_format": "string",
+      "project": "null|string",
+      "project_id": "null|string"
+    },
+    "required": [
+      "identifier"
+    ]
+  },
+  "read_content": {
+    "params": {
+      "path": "string",
+      "project": "null|string",
+      "project_id": "null|string"
+    },
+    "required": [
+      "path"
+    ]
+  },
+  "read_note": {
+    "params": {
+      "identifier": "string",
+      "include_frontmatter": "boolean",
+      "output_format": "string",
+      "page": "integer",
+      "page_size": "integer",
+      "project": "null|string",
+      "project_id": "null|string"
+    },
+    "required": [
+      "identifier"
+    ]
+  },
+  "recent_activity": {
+    "params": {
+      "depth": "integer",
+      "output_format": "string",
+      "page": "integer",
+      "page_size": "integer",
+      "project": "null|string",
+      "project_id": "null|string",
+      "timeframe": "string",
+      "type": "array|string"
+    },
+    "required": []
+  },
+  "schema_diff": {
+    "params": {
+      "note_type": "string",
+      "output_format": "string",
+      "project": "null|string",
+      "project_id": "null|string"
+    },
+    "required": [
+      "note_type"
+    ]
+  },
+  "schema_infer": {
+    "params": {
+      "note_type": "string",
+      "output_format": "string",
+      "project": "null|string",
+      "project_id": "null|string",
+      "threshold": "number"
+    },
+    "required": [
+      "note_type"
+    ]
+  },
+  "schema_validate": {
+    "params": {
+      "identifier": "null|string",
+      "note_type": "null|string",
+      "output_format": "string",
+      "project": "null|string",
+      "project_id": "null|string"
+    },
+    "required": []
+  },
+  "search": {
+    "params": {
+      "query": "string"
+    },
+    "required": [
+      "query"
+    ]
+  },
+  "search_notes": {
+    "params": {
+      "after_date": "null|string",
+      "categories": "array|null",
+      "entity_types": "array|null",
+      "metadata_filters": "null|object",
+      "min_similarity": "null|number",
+      "note_types": "array|null",
+      "output_format": "string",
+      "page": "integer",
+      "page_size": "integer",
+      "project": "null|string",
+      "project_id": "null|string",
+      "query": "null|string",
+      "search_all_projects": "boolean",
+      "search_type": "null|string",
+      "status": "null|string",
+      "tags": "array|null"
+    },
+    "required": []
+  },
+  "view_note": {
+    "params": {
+      "identifier": "string",
+      "project": "null|string",
+      "project_id": "null|string"
+    },
+    "required": [
+      "identifier"
+    ]
+  },
+  "write_note": {
+    "params": {
+      "content": "string",
+      "directory": "string",
+      "metadata": "null|object",
+      "note_type": "string",
+      "output_format": "string",
+      "overwrite": "boolean|null",
+      "project": "null|string",
+      "project_id": "null|string",
+      "tags": "array|null|string",
+      "title": "string",
+      "workspace": "null|string"
+    },
+    "required": [
+      "content",
+      "directory",
+      "title"
+    ]
+  }
+}

@@ -4,11 +4,24 @@
 const CRLF = String.fromCharCode(13, 10);
 const LF = String.fromCharCode(10);
 
-/**
- * Llama a una herramienta MCP y devuelve su resultado ya interpretado (JSON).
- * Lanza Error('mcp_<motivo>') si el servidor no responde, tarda demasiado o devuelve un error.
- */
-export async function callMcpTool({ base, auth, path = '/mcp', tool, args = {}, timeoutMs = 20000, fetchImpl = fetch }) {
+/** Llama a una herramienta MCP y devuelve su resultado ya interpretado (JSON). Lanza Error('mcp_<motivo>') si falla. */
+export async function callMcpTool({ tool, args = {}, ...conn }) {
+  const result = await mcpRequest({ ...conn, method: 'tools/call', params: { name: tool, arguments: args } });
+  if (result?.isError) throw new Error('mcp_tool_error');
+  const text = result?.content?.find((c) => c.type === 'text')?.text;
+  if (text === undefined) return result?.structuredContent ?? null;
+  let parsed;
+  try { parsed = JSON.parse(text); } catch { return text; }
+  return parsed && typeof parsed === 'object' && 'result' in parsed ? parsed.result : parsed;
+}
+
+/** Lista las herramientas del servidor MCP con su esquema de parametros. */
+export async function listMcpTools(conn) {
+  return (await mcpRequest({ ...conn, method: 'tools/list', params: {} })).tools;
+}
+
+/** Abre una sesion, hace UNA peticion JSON-RPC y devuelve su `result`. */
+async function mcpRequest({ base, auth, path = '/mcp', method, params, timeoutMs = 20000, fetchImpl = fetch }) {
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), timeoutMs);
   const headers = auth ? { authorization: auth } : {};
@@ -57,15 +70,10 @@ export async function callMcpTool({ base, auth, path = '/mcp', tool, args = {}, 
     await post({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'omnia-portal', version: '1' } } });
     await reply(1);
     await post({ jsonrpc: '2.0', method: 'notifications/initialized' });
-    await post({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: tool, arguments: args } });
+    await post({ jsonrpc: '2.0', id: 2, method, params });
     const out = await reply(2);
     if (out.error) throw new Error('mcp_error');
-    const text = out.result?.content?.find((c) => c.type === 'text')?.text;
-    if (out.result?.isError) throw new Error('mcp_tool_error');
-    if (text === undefined) return out.result?.structuredContent ?? null;
-    let parsed;
-    try { parsed = JSON.parse(text); } catch { return text; }
-    return parsed && typeof parsed === 'object' && 'result' in parsed ? parsed.result : parsed;
+    return out.result;
   } catch (e) {
     throw new Error(e.name === 'AbortError' ? 'mcp_timeout' : e.message.startsWith('mcp_') ? e.message : 'mcp_unreachable');
   } finally {

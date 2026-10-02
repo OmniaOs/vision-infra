@@ -127,7 +127,13 @@ export function checkMem0Rpc(user, space, msgs) {
 const KB_READ = new Set(['search_notes', 'read_note', 'view_note', 'read_content', 'build_context',
   'recent_activity', 'list_directory', 'schema_validate', 'schema_infer', 'schema_diff']);
 const KB_WRITE = new Set(['write_note', 'edit_note', 'move_note', 'delete_note']);
+// Un cliente usa solo lo imprescindible para leer y escribir notas en SU proyecto. Quedan fuera las herramientas
+// con mas caminos hacia otros proyectos (build_context y sus URLs memory://, move_note, read_content, schema_*, delete_note).
+const KB_CLIENT_TOOLS = new Set(['search_notes', 'read_note', 'view_note', 'list_directory', 'recent_activity', 'write_note', 'edit_note']);
 const KB_FORBIDDEN_KEYS = ['project_id', 'workspace'];
+
+/** Herramientas de Basic Memory que el gateway deja pasar (lo demas se deniega). Lo usan las pruebas y la foto de versiones. */
+export const KB_TOOLS = { read: KB_READ, write: KB_WRITE, client: KB_CLIENT_TOOLS };
 
 /** Recorre todos los textos de un valor (profundidad acotada). */
 function* strings(v, depth = 0) {
@@ -140,6 +146,7 @@ function* strings(v, depth = 0) {
 function kbCheckCall(user, name, args) {
   const mode = KB_READ.has(name) ? 'r' : KB_WRITE.has(name) ? 'w' : null;
   if (!mode) return deny(`herramienta_no_permitida:${String(name).slice(0, 40)}`);
+  if (user.role === 'cliente' && !KB_CLIENT_TOOLS.has(name)) return deny(`herramienta_no_permitida_para_cliente:${String(name).slice(0, 40)}`);
   if (!args || typeof args !== 'object' || Array.isArray(args)) return deny('argumentos_invalidos');
 
   for (const k of KB_FORBIDDEN_KEYS) if (k in args) return deny(`argumento_prohibido:${k}`);
