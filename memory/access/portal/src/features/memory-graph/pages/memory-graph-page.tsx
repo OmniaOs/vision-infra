@@ -3,6 +3,8 @@ import { Network, Search } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { describeApiError } from '@/shared/api/describe-api-error'
+import { useCurrentSession } from '@/features/authentication/hooks/use-current-session'
+import { toast } from '@/shared/toast/toast'
 import { EmptyState } from '@/shared/components/empty-state'
 import { PageHeader } from '@/shared/components/page-header'
 import { FadeIn } from '@/shared/motion/fade-in'
@@ -16,6 +18,7 @@ import { MemoryForceGraph, type MemoryForceGraphHandle, type NodeAnchor } from '
 import { MemoryNodePopover } from '../components/memory-node-popover'
 import { useElementSize } from '../hooks/use-element-size'
 import { useGraphSpaces } from '../hooks/use-graph-spaces'
+import { useDeleteMemories } from '../hooks/use-delete-memories'
 import { useMemories } from '../hooks/use-memories'
 import { buildForceGraphData, matchMemories, relatedMemoryIds } from '../lib/build-force-graph-data'
 
@@ -24,6 +27,8 @@ export function MemoryGraphPage() {
   const { data: spaces, isLoading: loadingSpaces, error: spacesError } = useGraphSpaces()
   const space = params.get('space') ?? spaces?.find((candidate) => candidate.count > 0)?.id ?? spaces?.[0]?.id
   const { data, isLoading, error } = useMemories(space)
+  const { data: session } = useCurrentSession()
+  const deleteMemories = useDeleteMemories()
   const { ref: stageRef, width, height } = useElementSize<HTMLDivElement>()
   const graph = useRef<MemoryForceGraphHandle>(null)
 
@@ -79,6 +84,21 @@ export function MemoryGraphPage() {
     const start = pressedAt.current
     if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 5) return
     handleSelect(hoveredId)
+  }
+
+  const handleDelete = () => {
+    if (!space || !selectedId) return
+    deleteMemories.mutate(
+      { space, ids: [selectedId] },
+      {
+        onSuccess: ({ removed }) => {
+          setSelectedId(undefined)
+          setHoveredId(undefined)
+          toast.success('Memoria borrada', removed[0] ? `«${removed[0].content.slice(0, 60)}»` : 'Ya no existía.')
+        },
+        onError: (e) => toast.error('No se pudo borrar', describeApiError(e)),
+      },
+    )
   }
 
   return (
@@ -146,6 +166,8 @@ export function MemoryGraphPage() {
                   topicLabel={shown.kind === 'memory' ? byId.get(`topic:${shown.topicId}`)?.label : undefined}
                   onJump={handleSelect}
                   onClose={() => setSelectedId(undefined)}
+                  onDelete={session?.role === 'admin' && shown.kind === 'memory' ? handleDelete : undefined}
+                  isDeleting={deleteMemories.isPending}
                 />
               ) : null}
             </AnimatePresence>

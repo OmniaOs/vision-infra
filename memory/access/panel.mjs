@@ -23,6 +23,7 @@
 //   DELETE /api/admin/tokens/:tid           revocar cualquiera del portal
 //   GET    /api/admin/spaces                espacios que ya existen (para asignarlos a personas)
 //   GET    /api/admin/namespaces            namespaces de Mem0 con su conteo y a que espacio corresponden
+//   POST   /api/admin/memories/delete {space, ids}   borrar memorias de un espacio (admin; devuelve lo borrado)
 //   GET    /api/admin/projects              proyectos de Basic Memory y a que espacio corresponden
 //   PUT    /api/admin/aliases {kind: 'mem0'|'kb', namespace, space}   asignar un namespace/proyecto antiguo a un espacio
 //   GET|PUT /api/admin/settings {enforce}   modo de permisos: bloquear o solo registrar
@@ -208,6 +209,15 @@ export function createPanelApi({
       if (p === '/api/admin/namespaces' && req.method === 'GET') {
         const origin = new Map((aliases ? aliases.list('mem0') : []).map((x) => [x.name, x.origin]));
         return send(200, { namespaces: (viewer ? await viewer.namespaceRows() : []).map((row) => ({ ...row, origin: origin.get(row.namespace) ?? null })) });
+      }
+      if (p === '/api/admin/memories/delete' && req.method === 'POST') {
+        if (!viewer) return send(503, { error: 'sin_visor' });
+        const b = await readJson(req);
+        let r;
+        try { r = await viewer.deleteMemories(actor, String(b.space), Array.isArray(b.ids) ? b.ids.map(String) : []); } catch { return send(502, { error: 'origen_no_disponible' }); }
+        if (r.error) return send(r.status, { error: r.error });
+        audit('borrar_memorias', String(b.space), { borradas: r.removed.length, ids: r.removed.map((x) => x.id) });
+        return send(200, r);
       }
       if (p === '/api/admin/projects' && req.method === 'GET') {
         const origin = new Map((aliases ? aliases.list('kb') : []).map((x) => [x.name, x.origin]));

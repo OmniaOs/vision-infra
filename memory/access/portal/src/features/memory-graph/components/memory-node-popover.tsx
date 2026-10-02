@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Calendar, Check, Copy, Link2, X } from 'lucide-react'
+import { Calendar, Check, Copy, Link2, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 import { copyToClipboard } from '@/shared/lib/copy-to-clipboard'
 import { formatDateTime } from '@/shared/lib/format-date'
@@ -24,11 +24,15 @@ interface MemoryNodePopoverProps {
   topicLabel?: string
   onJump: (id: string) => void
   onClose: () => void
+  /** Solo para administradores: borra esta memoria (pide confirmacion). */
+  onDelete?: () => void
+  isDeleting?: boolean
 }
 
 /** Tarjeta flotante pegada al nodo: vista previa al pasar el cursor y lectura completa al hacer clic. */
-export function MemoryNodePopover({ node, anchor, bounds, pinned, related, topicLabel, onJump, onClose }: MemoryNodePopoverProps) {
+export function MemoryNodePopover({ node, anchor, bounds, pinned, related, topicLabel, onJump, onClose, onDelete, isDeleting = false }: MemoryNodePopoverProps) {
   const [copied, setCopied] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const left = Math.min(Math.max(anchor.x, CARD_WIDTH / 2 + MARGIN), Math.max(bounds.width - CARD_WIDTH / 2 - MARGIN, CARD_WIDTH / 2 + MARGIN))
   // La tarjeta fijada va por donde haya mas sitio y nunca se sale del lienzo: si no cabe, se desplaza por dentro.
   const spaceAbove = anchor.y - anchor.radius - GAP - MARGIN
@@ -103,10 +107,29 @@ export function MemoryNodePopover({ node, anchor, bounds, pinned, related, topic
             </div>
           ) : null}
           {pinned ? (
-            <div className="mt-3 flex justify-end">
-              <Button variant="secondary" size="sm" className="gap-1.5" onClick={copy}>
-                {copied ? <Check className="text-success" /> : <Copy />} {copied ? 'Copiada' : 'Copiar'}
-              </Button>
+            <div className="mt-3 flex items-center justify-end gap-2">
+              {onDelete ? (
+                confirmingDelete ? (
+                  <>
+                    <span className="text-xs text-muted-foreground">¿Borrarla?</span>
+                    <Button variant="ghost" size="sm" onClick={() => setConfirmingDelete(false)} disabled={isDeleting}>
+                      No
+                    </Button>
+                    <Button variant="destructive" size="sm" onClick={onDelete} disabled={isDeleting}>
+                      {isDeleting ? 'Borrando…' : 'Sí, borrar'}
+                    </Button>
+                  </>
+                ) : (
+                  <Button variant="ghost" size="sm" className="gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setConfirmingDelete(true)}>
+                    <Trash2 /> Borrar
+                  </Button>
+                )
+              ) : null}
+              {confirmingDelete ? null : (
+                <Button variant="secondary" size="sm" className="gap-1.5" onClick={copy}>
+                  {copied ? <Check className="text-success" /> : <Copy />} {copied ? 'Copiada' : 'Copiar'}
+                </Button>
+              )}
             </div>
           ) : (
             <p className="mt-3 text-[11px] text-muted-foreground">Clic para fijarla y leerla completa</p>

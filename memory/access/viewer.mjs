@@ -163,16 +163,44 @@ export function createViewerApi({ routes, store, qdrantUrl, qdrantCollection, qd
     return send(res, 200, { spaces });
   }
 
-  async function graph(actor, res, space) {
-    let namespace;
-    if (typeof space === 'string' && space.startsWith('ns:')) { // namespace antiguo sin espacio: solo un admin
+  /** Namespace de Mem0 que corresponde a un espacio (o a `ns:<namespace>` sin asignar, solo admin). null si no existe o no puede verlo. */
+  function resolveNamespace(actor, space) {
+    if (typeof space === 'string' && space.startsWith('ns:')) {
       const legacy = space.slice(3);
-      if (actor.role !== 'admin' || !LEGACY_NS_RE.test(legacy) || spaceFromMem0(legacy)) return send(res, 404, { error: 'no_existe' });
-      namespace = legacy;
-    } else {
-      if (!SPACE_RE.test(space || '') || !canSee(actor, space)) return send(res, 404, { error: 'no_existe' });
-      namespace = mem0Namespace(space);
+      return actor.role === 'admin' && LEGACY_NS_RE.test(legacy) && !spaceFromMem0(legacy) ? legacy : null;
     }
+    return SPACE_RE.test(space || '') && canSee(actor, space) ? mem0Namespace(space) : null;
+  }
+
+  const ID_RE = /^[0-9a-fA-F-]{8,64}$/;
+  const MAX_DELETE = 200;
+
+  /**
+   * Borra memorias de UN namespace (admin). El filtro por namespace va siempre junto al id, asi un id de otro espacio no se toca.
+   * Devuelve { removed: [{id, content}], missing } o { error, status }.
+   */
+  async function deleteMemories(actor, space, ids) {
+    const namespace = resolveNamespace(actor, space);
+    if (!namespace) return { error: 'no_existe', status: 404 };
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > MAX_DELETE || !ids.every((id) => ID_RE.test(id))) return { error: 'invalido', status: 400 };
+    const unique = [...new Set(ids)];
+    const headers = { 'content-type': 'application/json', ...(qdrant.key ? { 'api-key': qdrant.key } : {}) };
+    const base = `${qdrant.url}/collections/${encodeURIComponent(qdrant.collection)}/points`;
+    const where = (list) => ({ must: [{ key: 'user_id', match: { value: namespace } }, { has_id: list }] });
+    const found = await fetchImpl(`${base}/scroll`, { method: 'POST', headers, body: JSON.stringify({ filter: where(unique), limit: unique.length, with_payload: true, with_vector: false }), signal: AbortSignal.timeout(15000) });
+    if (!found.ok) throw new Error(`qdrant_http_${found.status}`);
+    const points = ((await found.json()).result?.points || []).filter((p) => p.payload?.user_id === namespace);
+    if (points.length === 0) return { removed: [], missing: unique.length };
+    const del = await fetchImpl(`${base}/delete?wait=true`, { method: 'POST', headers, body: JSON.stringify({ filter: where(points.map((p) => p.id)) }), signal: AbortSignal.timeout(15000) });
+    if (!del.ok) throw new Error(`qdrant_http_${del.status}`);
+    cache.delete(`g:${namespace}`);
+    cache.delete('counts');
+    return { removed: points.map((p) => ({ id: String(p.id), content: String(p.payload?.data ?? '').slice(0, 300) })), missing: unique.length - points.length };
+  }
+
+  async function graph(actor, res, space) {
+    const namespace = resolveNamespace(actor, space);
+    if (!namespace) return send(res, 404, { error: 'no_existe' });
     const data = await cached(`g:${namespace}`, async () => {
       const [points, details] = await Promise.all([scrollMemories(namespace), restDetails(namespace)]);
       const { clusters, assignment, links } = analyzeMemories(points);
@@ -244,5 +272,5 @@ export function createViewerApi({ routes, store, qdrantUrl, qdrantCollection, qd
     return true;
   }
 
-  return { handle, namespaceRows, projectRows, catalog };
+  return { handle, namespaceRows, projectRows, catalog, deleteMemories };
 }
