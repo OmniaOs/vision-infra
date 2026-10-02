@@ -119,6 +119,26 @@ instante las conexiones abiertas de ese token y deja funcionando los demás.
 - El «dispositivo» es el cliente que se conectó (su `User-Agent`) más la IP; no hay forma de nombrar el equipo físico.
 - Archivo `users.json` v2 (`users` + `tokens`); el formato anterior se migra solo al leerlo.
 
+## Memoria corta: servicio propio (sin IA al escribir)
+
+Mem0/OpenMemory está **descontinuado** (su imagen es de junio de 2025 y Mem0 lo retiró de su repo en julio de 2026) y su
+extractor —un LLM con un prompt de «información personal»— descartaba o deformaba las lecciones técnicas y podía borrar
+memorias existentes. Por eso `memory-service.mjs` lo reemplaza **en el camino de escritura**, dentro del propio gateway:
+
+- Habla MCP sobre SSE en loopback con las mismas herramientas y URLs, así tokens, políticas y clientes no cambian.
+  Añade `delete_memory` (borra una de su espacio; `delete_all_memories` sigue siendo solo admin).
+- **Guarda el texto exacto.** Solo usa embeddings (OpenAI) para buscar.
+- **Filtro de calidad al escribir:** rechaza con un motivo lo demasiado corto (<25 caracteres o <5 palabras), solo un id,
+  etiquetas tipo «Intereses…/Proyecto…», lo demasiado largo y lo que parece un secreto (tokens, claves, contraseñas).
+- **No duplica:** si ya hay una lección casi idéntica en el espacio (similitud ≥ 0.92) devuelve la existente (`NONE`).
+- Registra quién escribió cada lección (`author`) y el cliente MCP.
+- Usa **la misma colección de Qdrant** (`openmemory`, filtrada por `user_id` = namespace): las memorias existentes siguen ahí.
+  Lee las dimensiones de la colección al arrancar y falla con un mensaje claro si el modelo de embeddings no coincide.
+- Variables: `OPENAI_API_KEY` (obligatoria para activarlo), `EMBEDDER_MODEL` (por defecto `text-embedding-3-small`, el mismo
+  que usaba OpenMemory), `OPENAI_BASE_URL` (opcional). Sin la llave, o con `MEM0_BACKEND=openmemory`, se usa el contenedor
+  `openmemory-mcp` como antes (el portal avisa en Espacios qué servicio está activo).
+- Ya no se usa de OpenMemory: su IA, su SQL (categorías) ni su panel. El contenedor puede apagarse cuando se confirme el cambio.
+
 ## Notas y Grafo de memoria (solo lectura)
 
 - **Notas:** lee las notas de Basic Memory sin clonar nada (árbol por carpetas, buscador, markdown con etiquetas del encabezado).

@@ -102,7 +102,7 @@ export function createViewerApi({ routes, store, qdrantUrl, qdrantCollection, qd
   /** Categorias y app desde la REST de OpenMemory (SQL). Es un extra: si falla o esta vacia, el grafo sigue. */
   async function restDetails(namespace) {
     const details = new Map();
-    if (!mem0) return details;
+    if (!mem0 || mem0.native) return details; // el servicio propio no tiene la REST de OpenMemory (categorias)
     try {
       for (let page = 1; page <= 5; page++) {
         const r = await fetchImpl(`${mem0.upstream}/api/v1/memories/?user_id=${encodeURIComponent(namespace)}&page=${page}&size=${PAGE}`, {

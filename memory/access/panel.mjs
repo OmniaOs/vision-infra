@@ -71,7 +71,7 @@ const publicUser = (u, auth, tokens = []) => {
 };
 
 export function createPanelApi({
-  store, auth, closeSessions, closeSpace = () => 0, aliases, auditSnapshot = () => ({ total: 0, recent: [] }), viewer, log = () => {}, memoryDomain = 'memory.omniaos.ai', panelDomain = 'memorypanel.omniaos.ai',
+  store, auth, closeSessions, closeSpace = () => 0, aliases, memoryBackend = () => 'openmemory', auditSnapshot = () => ({ total: 0, recent: [] }), viewer, log = () => {}, memoryDomain = 'memory.omniaos.ai', panelDomain = 'memorypanel.omniaos.ai',
 }) {
   const newToken = () => `omnia_${randomBytes(32).toString('base64url')}`;
   const commands = (token) => ({
@@ -252,7 +252,7 @@ export function createPanelApi({
         }
       }
       if (p === '/api/admin/settings' && req.method === 'GET') {
-        return send(200, { enforce: aliases ? aliases.enforce : false, enforcedByEnv: aliases ? aliases.enforcedByEnv : false, wouldDeny: auditSnapshot() });
+        return send(200, { memoryBackend: memoryBackend(), enforce: aliases ? aliases.enforce : false, enforcedByEnv: aliases ? aliases.enforcedByEnv : false, wouldDeny: auditSnapshot() });
       }
       if (p === '/api/admin/settings' && req.method === 'PUT') {
         if (!aliases || !aliases.writable) return send(503, { error: 'sin_archivo_de_usuarios' });

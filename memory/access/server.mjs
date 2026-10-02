@@ -23,6 +23,7 @@ import { createPanelApi } from './panel.mjs';
 import { createAuth } from './auth.mjs';
 import { createViewerApi } from './viewer.mjs';
 import { createAliasStore } from './aliases.mjs';
+import { createMemoryServer } from './memory-service.mjs';
 
 export { hashToken };
 
@@ -155,7 +156,7 @@ export function createGateway({
   const noteWouldDeny = (entry) => { wouldDeny.total++; wouldDeny.recent.unshift(entry); if (wouldDeny.recent.length > 20) wouldDeny.recent.pop(); };
   const viewer = createViewerApi({ routes, store: users, log, ...viewerOptions });
   const panelApi = createPanelApi({
-    store: users, auth, closeSessions, closeSpace, aliases: aliasStore, auditSnapshot: () => ({ ...wouldDeny, recent: [...wouldDeny.recent] }), log, viewer,
+    store: users, auth, closeSessions, closeSpace, aliases: aliasStore, memoryBackend: () => (routes.find((r) => r.name === 'mem0')?.native ? 'native' : 'openmemory'), auditSnapshot: () => ({ ...wouldDeny, recent: [...wouldDeny.recent] }), log, viewer,
     memoryDomain: memoryDomain || (routes.find((r) => r.name === 'mem0')?.hosts[0]) || 'memory.omniaos.ai',
     panelDomain: routes.find((r) => r.name === 'panel')?.hosts[0] || 'memorypanel.omniaos.ai',
   });
@@ -418,6 +419,23 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const enforce = process.env.ACCESS_ENFORCE === '1';
   console.error(`politicas: ${enforce ? 'ACTIVAS (se bloquea)' : 'en AUDITORIA (solo se registra lo que se denegaria)'}`);
   const routes = routesFromEnv(process.env);
+  // Memoria corta: servicio propio dentro del gateway (sin LLM al escribir). MEM0_BACKEND=openmemory vuelve al contenedor viejo.
+  const memoryRoute = routes.find((r) => r.name === 'mem0');
+  if (process.env.MEM0_BACKEND === 'openmemory') {
+    console.error('memoria: OpenMemory (MEM0_BACKEND=openmemory), sin filtro de calidad');
+  } else if (!process.env.OPENAI_API_KEY) {
+    console.error('AVISO: falta OPENAI_API_KEY; la memoria corta sigue por OpenMemory (sin filtro de calidad)');
+  } else {
+    const secret = randomBytes(24).toString('hex');
+    const service = createMemoryServer({
+      qdrantUrl: process.env.QDRANT_URL, qdrantKey: process.env.QDRANT_API_KEY, collection: process.env.QDRANT_COLLECTION || undefined,
+      openaiKey: process.env.OPENAI_API_KEY, openaiBase: process.env.OPENAI_BASE_URL || undefined, embeddingModel: process.env.EMBEDDER_MODEL || undefined,
+      internalSecret: secret, log: (e) => console.log(JSON.stringify(e)),
+    });
+    const internalPort = await new Promise((resolve) => service.listen(0, '127.0.0.1', () => resolve(service.address().port)));
+    Object.assign(memoryRoute, { upstream: `http://127.0.0.1:${internalPort}`, upstreamAuth: `Bearer ${secret}`, native: true });
+    service.memory.ensureReady().then(() => console.error('memoria: servicio propio listo (Qdrant y embeddings)'), (e) => console.error(`AVISO: el servicio de memoria no pudo iniciar: ${e.message}`));
+  }
   for (const r of routes) {
     if (!r.upstreamAuth) console.error(`AVISO: la ruta ${r.name} no inyecta credenciales al backend.`);
   }

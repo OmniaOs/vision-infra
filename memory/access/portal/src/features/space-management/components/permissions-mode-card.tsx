@@ -47,6 +47,7 @@ export function PermissionsModeCard({ users, rows }: PermissionsModeCardProps) {
             <Badge variant={settings.enforce ? 'success' : 'amber'}>{settings.enforce ? 'Bloqueando' : 'Solo registrando'}</Badge>
           </CardTitle>
           <CardDescription>
+            {settings.memoryBackend === 'native' ? 'Memorias: servicio propio, sin IA al escribir. ' : 'Memorias: OpenMemory (antiguo, la IA puede reescribir lo que guardas). '}
             {settings.enforce
               ? 'Quien intente leer o escribir fuera de sus espacios recibe un rechazo, en Mem0 y en las notas.'
               : 'Nadie queda bloqueado todavía: se registra lo que se bloquearía. Revísalo y activa el bloqueo cuando salga limpio.'}

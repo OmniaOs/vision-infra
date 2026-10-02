@@ -28,6 +28,8 @@ export interface WouldDenyEntry {
 }
 
 export interface AccessSettings {
+  /** Quien guarda las memorias cortas: el servicio propio del gateway o el contenedor OpenMemory (antiguo). */
+  memoryBackend: 'native' | 'openmemory'
   /** Los permisos bloquean (true) o solo registran lo que bloquearian (false). */
   enforce: boolean
   /** Lo fuerza Coolify (ACCESS_ENFORCE=1): no se puede apagar desde el portal. */

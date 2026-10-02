@@ -90,6 +90,12 @@ services:
       - ACCESS_NAMESPACE_ALIASES=${ACCESS_NAMESPACE_ALIASES:-}
       # Alias gestionados desde el portal (sin redeploy). Vive en el volumen de datos.
       - ACCESS_ALIASES_FILE=/data/aliases.json
+      # Memoria corta: servicio propio del gateway (sin LLM al escribir; solo embeddings). Con MEM0_BACKEND=openmemory
+      # (o sin OPENAI_API_KEY) se usa el contenedor openmemory-mcp como antes.
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
+      - EMBEDDER_MODEL=${EMBEDDER_MODEL:-text-embedding-3-small}
+      - MEM0_BACKEND=${MEM0_BACKEND:-}
       # El grafo del portal lee los textos de las memorias directo de Qdrant (red interna).
       - QDRANT_URL=http://mem0_store:6333
       # Personas dadas de alta desde el panel (altas y bajas sin redeploy). Vive en un volumen.

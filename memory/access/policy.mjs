@@ -124,7 +124,7 @@ function methodAllowed(m, admin) {
 
 // ---------- Mem0 ----------
 
-const MEM0_TOOLS = { add_memories: 'w', search_memory: 'r', list_memories: 'r', delete_all_memories: 'admin' };
+const MEM0_TOOLS = { add_memories: 'w', search_memory: 'r', list_memories: 'r', delete_memory: 'w', delete_all_memories: 'admin' };
 
 /** Conexion SSE a un namespace de Mem0. */
 export function checkMem0Connect(user, namespace) {

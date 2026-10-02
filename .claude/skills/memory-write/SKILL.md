@@ -115,7 +115,12 @@ Por cada hecho redactado, en el namespace resuelto:
 1. Llama `add_memories` con el texto del Paso 5.
 2. Si `results` no está vacío → registra cada entrada devuelta (`id`,
    `memory`, `event`) como guardada. Sigue con el próximo hecho.
-3. Si `results` viene vacío (`[]`):
+3. **Servicio nuevo (desde 2026-10-02):** el gateway guarda el texto TAL CUAL, sin IA. Si responde con error `No se
+   guardó: <motivo>`, el motivo dice qué corregir (demasiado corta, solo un título o id, parece un secreto, demasiado
+   larga): corrige eso y reintenta una vez. Si responde `event: NONE`, ya existía una lección equivalente: no la repitas.
+   El resto de este paso (reformular con «El equipo decidió/registró…») solo aplica si el gateway sigue en el modo
+   antiguo (OpenMemory) y `results` viene vacío.
+4. Si `results` viene vacío (`[]`) en el modo antiguo:
    - No lo des por perdido. Si el texto enviado todavía no seguía el
      patrón "El equipo decidió/registró/acordó que..." al pie de la letra,
      reformúlalo así explícitamente.
