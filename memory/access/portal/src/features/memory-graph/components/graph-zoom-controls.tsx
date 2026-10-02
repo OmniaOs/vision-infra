@@ -4,19 +4,19 @@ import { Button } from '@/shared/ui/button'
 interface GraphZoomControlsProps {
   onZoomIn: () => void
   onZoomOut: () => void
-  onReset: () => void
+  onFit: () => void
 }
 
-export function GraphZoomControls({ onZoomIn, onZoomOut, onReset }: GraphZoomControlsProps) {
+export function GraphZoomControls({ onZoomIn, onZoomOut, onFit }: GraphZoomControlsProps) {
   return (
-    <div className="absolute right-3 top-3 flex flex-col gap-1.5">
-      <Button variant="secondary" size="icon" className="size-8" onClick={onZoomIn} aria-label="Acercar">
+    <div className="absolute right-3 top-3 z-10 flex flex-col gap-1.5">
+      <Button variant="secondary" size="icon" className="size-8 shadow-md" onClick={onZoomIn} aria-label="Acercar">
         <Plus />
       </Button>
-      <Button variant="secondary" size="icon" className="size-8" onClick={onZoomOut} aria-label="Alejar">
+      <Button variant="secondary" size="icon" className="size-8 shadow-md" onClick={onZoomOut} aria-label="Alejar">
         <Minus />
       </Button>
-      <Button variant="secondary" size="icon" className="size-8" onClick={onReset} aria-label="Restablecer vista">
+      <Button variant="secondary" size="icon" className="size-8 shadow-md" onClick={onFit} aria-label="Ver todo">
         <Maximize2 />
       </Button>
     </div>

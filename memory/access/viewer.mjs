@@ -3,22 +3,25 @@
 //   GET /api/notes/projects                 proyectos que puedo ver
 //   GET /api/notes/tree?project=X           notas de un proyecto (sin contenido)
 //   GET /api/notes/note?project=X&id=perma  una nota (markdown + frontmatter)
-//   GET /api/graph/spaces                   espacios cuyas memorias puedo ver
+//   GET /api/graph/spaces                   espacios cuyas memorias puedo ver, con cuantas hay (el admin ve tambien los namespaces sin espacio)
 //   GET /api/graph?space=S                  memorias de Mem0 de un espacio (textos de Qdrant, categorias de la REST si hay)
 //
 // Nada de aqui escribe. El permiso es el mismo de siempre (policy.access): admin todo, miembro/lectura el global y
 // sus espacios, cliente solo el suyo. Basic Memory se llama con `project` siempre fijado por el servidor, y un
 // identificador que apunte a otro proyecto (memory://...) se rechaza.
 
-import { access, mem0Namespace, spaceFromKbProject, SPACE_RE } from './policy.mjs';
+import { access, mem0Namespace, spaceFromKbProject, spaceFromMem0, SPACE_RE } from './policy.mjs';
 import { callMcpTool } from './mcp-client.mjs';
+import { analyzeMemories } from './cluster.mjs';
 
 const PROJECT_ADMIN_RE = /^[A-Za-z0-9][A-Za-z0-9._ -]{0,63}$/; // el admin ve proyectos aun no migrados al nombre de espacio
 const MAX_NOTE_BYTES = 256 * 1024;
 const MAX_MEMORIES = 500;
 const PAGE = 100;
+const CACHE_MS = 60_000;
+const LEGACY_NS_RE = /^[a-z0-9][a-z0-9_-]{0,31}$/;
 
-export function createViewerApi({ routes, store, qdrantUrl, qdrantCollection, qdrantKey, log = () => {}, callTool = callMcpTool, fetchImpl = fetch }) {
+export function createViewerApi({ routes, store, qdrantUrl, qdrantCollection, qdrantKey, cacheMs = CACHE_MS, log = () => {}, callTool = callMcpTool, fetchImpl = fetch }) {
   const qdrant = { url: String(qdrantUrl || 'http://mem0_store:6333').replace(/\/$/, ''), collection: qdrantCollection || 'openmemory', key: qdrantKey };
   const kb = routes.find((r) => r.name === 'knowledge');
   const mem0 = routes.find((r) => r.name === 'mem0');
@@ -70,13 +73,6 @@ export function createViewerApi({ routes, store, qdrantUrl, qdrantCollection, qd
     return send(res, 200, { project, title: n.title, permalink: n.permalink, path: n.file_path, content: n.content, frontmatter: n.frontmatter || {} });
   }
 
-  function graphSpaces(actor, res) {
-    const all = new Set(['global']);
-    for (const u of store.all()) for (const s of u.spaces) all.add(s);
-    for (const s of actor.spaces || []) all.add(s);
-    return send(res, 200, { spaces: [...all].filter((s) => canSee(actor, s)).sort() });
-  }
-
   /** Textos desde Qdrant (la fuente que siempre los tiene), filtrados por el namespace del espacio. */
   async function scrollMemories(namespace) {
     const out = [];
@@ -85,7 +81,7 @@ export function createViewerApi({ routes, store, qdrantUrl, qdrantCollection, qd
       const r = await fetchImpl(`${qdrant.url}/collections/${encodeURIComponent(qdrant.collection)}/points/scroll`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', ...(qdrant.key ? { 'api-key': qdrant.key } : {}) },
-        body: JSON.stringify({ filter: { must: [{ key: 'user_id', match: { value: namespace } }] }, limit: PAGE, with_payload: true, with_vector: false, ...(offset ? { offset } : {}) }),
+        body: JSON.stringify({ filter: { must: [{ key: 'user_id', match: { value: namespace } }] }, limit: PAGE, with_payload: true, with_vector: true, ...(offset ? { offset } : {}) }),
         signal: AbortSignal.timeout(15000),
       });
       if (!r.ok) throw new Error(`qdrant_http_${r.status}`);
@@ -94,7 +90,9 @@ export function createViewerApi({ routes, store, qdrantUrl, qdrantCollection, qd
         const payload = point.payload || {};
         // Defensa en profundidad: aunque el filtro falle, un punto de otro namespace nunca sale.
         if (payload.user_id !== namespace || typeof payload.data !== 'string') continue;
-        out.push({ id: String(point.id), content: payload.data.slice(0, 2000), createdAt: payload.created_at ?? null, categories: [], app: null });
+        const v = point.vector;
+        const vector = Array.isArray(v) ? v : v && typeof v === 'object' ? Object.values(v).find(Array.isArray) : undefined; // vector unico o con nombre
+        out.push({ id: String(point.id), content: payload.data.slice(0, 2000), createdAt: payload.created_at ?? null, categories: [], app: null, vector });
       }
       offset = result?.next_page_offset ?? null;
     } while (offset && out.length < MAX_MEMORIES);
@@ -122,16 +120,70 @@ export function createViewerApi({ routes, store, qdrantUrl, qdrantCollection, qd
     return details;
   }
 
+  const cache = new Map(); // clave -> { t, value }
+  async function cached(key, make) {
+    const hit = cache.get(key);
+    if (hit && Date.now() - hit.t < cacheMs) return hit.value;
+    const value = await make();
+    cache.set(key, { t: Date.now(), value });
+    if (cache.size > 200) cache.delete(cache.keys().next().value);
+    return value;
+  }
+
+  /** Cuantas memorias hay por namespace: la faceta de Qdrant y, si no existe en esa version, un recuento por barrido. */
+  async function countByNamespace() {
+    const headers = { 'content-type': 'application/json', ...(qdrant.key ? { 'api-key': qdrant.key } : {}) };
+    const base = `${qdrant.url}/collections/${encodeURIComponent(qdrant.collection)}`;
+    const facet = await fetchImpl(`${base}/facet`, { method: 'POST', headers, body: JSON.stringify({ key: 'user_id', limit: 200, exact: true }), signal: AbortSignal.timeout(15000) });
+    if (facet.ok) return new Map(((await facet.json()).result?.hits || []).map((h) => [String(h.value), Number(h.count)]));
+    const counts = new Map(); let offset = null; let seen = 0;
+    do {
+      const r = await fetchImpl(`${base}/points/scroll`, { method: 'POST', headers, body: JSON.stringify({ limit: 500, with_payload: ['user_id'], with_vector: false, ...(offset ? { offset } : {}) }), signal: AbortSignal.timeout(15000) });
+      if (!r.ok) throw new Error(`qdrant_http_${r.status}`);
+      const { result } = await r.json();
+      for (const p of result?.points || []) { const u = p.payload?.user_id; if (typeof u === 'string') counts.set(u, (counts.get(u) || 0) + 1); seen++; }
+      offset = result?.next_page_offset ?? null;
+    } while (offset && seen < 20000);
+    return counts;
+  }
+
+  /** Espacios con memorias. Un admin ve tambien los namespaces antiguos que aun no son un espacio (`ns:<nombre>`). */
+  async function graphSpaces(actor, res) {
+    const counts = await cached('counts', countByNamespace);
+    const entries = new Map();
+    for (const [ns, count] of counts) {
+      const space = spaceFromMem0(ns);
+      if (space && canSee(actor, space)) entries.set(space, { id: space, label: space, count, mapped: true });
+      else if (!space && actor.role === 'admin' && LEGACY_NS_RE.test(ns)) entries.set(`ns:${ns}`, { id: `ns:${ns}`, label: ns, count, mapped: false });
+    }
+    // Sus espacios aparecen aunque aun no tengan memorias.
+    const known = new Set(['global', ...(actor.spaces || []), ...(actor.role === 'admin' ? store.all().flatMap((u) => u.spaces) : [])]);
+    for (const space of known) if (canSee(actor, space) && !entries.has(space)) entries.set(space, { id: space, label: space, count: 0, mapped: true });
+    const spaces = [...entries.values()].sort((a, b) => Number(b.mapped) - Number(a.mapped) || b.count - a.count || a.id.localeCompare(b.id));
+    return send(res, 200, { spaces });
+  }
+
   async function graph(actor, res, space) {
-    if (!SPACE_RE.test(space || '') || !canSee(actor, space)) return send(res, 404, { error: 'no_existe' });
-    const namespace = mem0Namespace(space);
-    const [points, details] = await Promise.all([scrollMemories(namespace), restDetails(namespace)]);
-    const memories = points
-      .map((m) => ({ ...m, ...(details.get(m.id) || {}) }))
-      .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
-      .slice(0, MAX_MEMORIES);
+    let namespace;
+    if (typeof space === 'string' && space.startsWith('ns:')) { // namespace antiguo sin espacio: solo un admin
+      const legacy = space.slice(3);
+      if (actor.role !== 'admin' || !LEGACY_NS_RE.test(legacy) || spaceFromMem0(legacy)) return send(res, 404, { error: 'no_existe' });
+      namespace = legacy;
+    } else {
+      if (!SPACE_RE.test(space || '') || !canSee(actor, space)) return send(res, 404, { error: 'no_existe' });
+      namespace = mem0Namespace(space);
+    }
+    const data = await cached(`g:${namespace}`, async () => {
+      const [points, details] = await Promise.all([scrollMemories(namespace), restDetails(namespace)]);
+      const { clusters, assignment, links } = analyzeMemories(points);
+      const memories = points
+        .map(({ vector, ...m }) => ({ ...m, ...(details.get(m.id) || {}), cluster: assignment[m.id] ?? null }))
+        .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+        .slice(0, MAX_MEMORIES);
+      return { memories, clusters, links };
+    });
     read(actor, 'memorias', space);
-    return send(res, 200, { space, total: memories.length, memories });
+    return send(res, 200, { space, total: data.memories.length, ...data });
   }
 
   /** Devuelve true si la ruta era suya. */
@@ -143,7 +195,7 @@ export function createViewerApi({ routes, store, qdrantUrl, qdrantCollection, qd
       if (p === '/api/notes/projects') await projects(actor, res);
       else if (p === '/api/notes/tree') await tree(actor, res, url.searchParams.get('project'));
       else if (p === '/api/notes/note') await note(actor, res, url.searchParams.get('project'), url.searchParams.get('id'));
-      else if (p === '/api/graph/spaces') graphSpaces(actor, res);
+      else if (p === '/api/graph/spaces') await graphSpaces(actor, res);
       else if (p === '/api/graph') await graph(actor, res, url.searchParams.get('space'));
       else send(res, 404, { error: 'not_found' });
     } catch (e) {
