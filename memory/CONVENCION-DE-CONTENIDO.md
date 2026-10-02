@@ -1,132 +1,92 @@
 # Convención de contenido — memoria compartida
 
-El [onboarding self-service](INSTRUCTIVO.md) resuelve el **acceso** a
-`omnia-memory` / `omnia-memory-global`. Esta convención resuelve lo otro que
-faltaba: **qué escribir, dónde, y cómo** — sin esto, "todos escriben libre"
-en volumen termina en un store ruidoso e inútil para lo que de verdad importa:
-que alguien resuelva un ticket o incidente de un área ajena sin depender de
-la persona responsable.
+El [onboarding self-service](INSTRUCTIVO.md) resuelve el **acceso**. Esta convención resuelve lo otro: **qué escribir, dónde
+y cómo**. Sin ella, «todos escriben libre» termina en un store ruidoso e inútil para lo que importa: que alguien resuelva
+un ticket o un incidente de un área ajena sin depender de la persona responsable.
 
-> **Antes de seguir leyendo:** esta convención se reescribió después de
-> probarla en vivo contra el store real (sembrando las primeras entradas el
-> 2026-09-23). El diseño original asumía que Mem0 guarda texto tal cual, con
-> tags. Es falso — ver "Cómo funciona realmente" abajo antes de escribir.
+> **Actualizada el 2026-10-02.** Hasta esa fecha `add_memories` pasaba por un extractor con IA (OpenMemory) que reescribía,
+> descartaba o fragmentaba lo que mandabas, y las reglas de redacción de esta convención eran trucos para esquivarlo. Ese
+> extractor ya no está en el camino de escritura (ver «Cómo funciona `add_memories` ahora»). Si ves memorias antiguas raras
+> («Intereses en…», `OmniaPOS:<commit>`), son de esa etapa.
 
-## Los cuatro lugares, y cuál usar
+## Los lugares y cuál usar
 
-> **Esta tabla es la fuente canónica.** `omnia-knowledge/README.md` y
-> cualquier otro doc que compare estas capas deben referenciar esta
-> sección, no copiarla — si hace falta actualizar el modelo, se actualiza
-> ACÁ primero y todo lo demás linkea. Confirmado que sin esta regla el
-> doc se desactualiza en el primer cambio (pasó con el piloto de
-> `omnia-knowledge`: existió una semana sin que este archivo lo supiera).
+Todo se organiza en **espacios** (ver [PERMISOS.md](PERMISOS.md) para saber quién ve cuál): `global`, `proy-<producto>`,
+`int-<cliente>` (lo que el equipo sabe de un cliente, interno) y `cli-<cliente>` (lo que se comparte con el cliente).
+
+> **Esta tabla es la fuente canónica.** Otros documentos deben referenciarla, no copiarla.
 
 | Lugar | Qué guarda | Quién lo lee |
 |---|---|---|
-| `vision/` + `telemetry/handoffs/` (git, por repo) | Arquitectura, specs, decisiones de producto — la **fuente de verdad** del proyecto | Cualquiera que abra ese repo |
-| `omnia-memory` (Mem0, namespace por proyecto) | Lecciones operativas cortas de ESE proyecto/cliente — un hecho, una oración | Agentes trabajando en ese repo — aislado, nunca cruza a otro cliente |
-| `omnia-memory-global` (Mem0, namespace compartido) | Lecciones de **ingeniería reutilizables entre repos**, cortas — herramientas, infra, patrones. **Cero datos de cliente, siempre** | Agentes en cualquier repo de Omnia |
-| `omnia-knowledge` (Basic Memory + Obsidian + Git, **piloto**) | Conocimiento **largo y estructurado**: incidentes completos, arquitectura de producto, implementaciones por cliente, traspasos narrados. Organizado por "proyecto" (no necesariamente un repo — puede ser un cliente, ver `omnia-knowledge/README.md`) | Agentes vía MCP + humanos vía Obsidian. Hoy solo `omniapos`/`frutal` (alcance del piloto) |
+| `vision/` + `telemetry/handoffs/` (git, por repo) | Arquitectura, specs, decisiones de producto: la **fuente de verdad** del proyecto | Quien abra ese repo |
+| **Memorias cortas** (Mem0): conexión `omnia-memory` = el espacio del proyecto; `omnia-memory-global` = `global` | Una lección operativa: un hecho, una o dos oraciones | Agentes y personas con acceso a ese espacio |
+| **Notas largas** (Basic Memory): un proyecto por espacio | Incidentes completos, arquitectura, decisiones con su razonamiento, runbooks. Estructura fija en [ESTRUCTURA-NOTAS.md](ESTRUCTURA-NOTAS.md) | Agentes por MCP, personas desde el portal (Notas) y Obsidian |
 
-**Regla para decidir global vs. proyecto (dentro de Mem0):** *¿esta lección
-seguiría siendo cierta si mañana la leo trabajando en OTRO repo de Omnia,
-sin ningún contexto de este proyecto?* Si sí → `omnia-memory-global`. Si
-necesita saber de este proyecto/cliente para tener sentido → `omnia-memory`.
+**Global o del proyecto:** *¿esta lección seguiría siendo cierta si mañana la leo trabajando en OTRO repo de Omnia, sin
+ningún contexto de este proyecto, y sin nombrar a un cliente?* Sí → `global`. No → el espacio del proyecto o del cliente.
 
-**Regla para decidir memoria vs. `vision/`:** si es una decisión de
-arquitectura o el propósito de una feature, va en `vision/specs/` — eso ya se
-versiona, se referencia por `/newspec` y `/modifyspec`, y no necesita
-duplicarse acá. La memoria es para lo que **no** tiene un lugar natural en
-`vision/`: el detalle operativo que te ahorra repetir una investigación.
+**Memoria o `vision/`:** una decisión de arquitectura o el propósito de una feature va en `vision/specs/` (se versiona y se
+referencia). La memoria es para lo que no tiene un lugar natural ahí: el detalle operativo que te ahorra repetir una investigación.
 
-**Regla para decidir Mem0 vs. `omnia-knowledge`:** ¿el hallazgo tiene
-estructura real — línea de tiempo, varias observaciones conectadas, causa
-+ fix + pendientes, una decisión con su razonamiento completo, la ficha de
-una implementación de cliente? Eso se lee mejor como documento
-(`omnia-knowledge`) que como oración suelta (Mem0). Un gotcha de una sola
-oración, sin nada más que agregar, sigue yendo a Mem0 — es más rápido de
-buscar ahí para ese tamaño, y `omnia-knowledge` todavía es un piloto
-limitado a `omniapos`/`frutal`. Las dos capas **no son excluyentes**: un
-mismo hallazgo grande puede generar una nota larga acá y, además, un hecho
-corto en Mem0-global si la lección de fondo es reutilizable (ver el
-incidente de assets de Frutal, migrado como caso real: nota completa en
-`omnia-knowledge/projects/frutal/incidentes/`, más el gotcha genérico de
-Coolify en `omnia-memory-global`).
+**Memoria corta o nota larga:** si hay línea de tiempo, varias observaciones conectadas, causa + arreglo + pendientes, o una
+decisión con sus alternativas, es una **nota**. Un gotcha de una sola oración es una **memoria corta**. No son excluyentes:
+un incidente grande genera su nota y, además, una memoria global si la lección de fondo sirve a cualquiera.
 
-## Cómo funciona realmente `add_memories` (importante, no es intuitivo)
+## Cómo funciona `add_memories` ahora
 
-Probado en vivo contra `omnia-memory-global` el 2026-09-23:
+Desde el 2026-10-02 el gateway guarda las memorias con un servicio propio (`memory/access/memory-service.mjs`):
 
-1. **No guarda el texto tal cual.** Corre su propia extracción de "hechos
-   atómicos" vía LLM sobre lo que le mandes — como si fuera una conversación
-   casual de la que hay que sacar datos sueltos, no un archivo de notas. Un
-   párrafo de 3-4 oraciones conectadas ("la regla, por qué, cuándo aplica")
-   sale hecho pedazos: cada oración termina como una fila independiente, sin
-   ningún vínculo explícito entre ellas.
-2. **Las tags entre corchetes se descartan.** Poner `[vision-infra][coolify]`
-   al principio del texto no deja rastro en lo que queda guardado — ni una
-   palabra. No hay tagging manual viable hoy; la única forma de "filtrar" es
-   `search_memory` (búsqueda semántica) o revisar `list_memories` a mano.
-3. **A veces no guarda nada, sin error.** Un texto técnico denso y bien
-   escrito puede devolver `results: []` — ninguna fila nueva, ningún error.
-   Pasó dos veces con la misma lección (SSH `StrictHostKeyChecking`)
-   redactada como explicación técnica ("un túnel necesita X porque Y").
-   Reescrita como decisión del equipo ("el equipo decidió agregar X a los
-   túneles...") sí se guardó a la primera. **Redactar como decisión o hecho
-   del equipo, no como explicación técnica abstracta, es más confiable.**
-4. **`list_memories` no siempre muestra todo lo que hay.** Confirmado:
-   entradas que un `add_memories` anterior devolvió como `ADD`/`UPDATE`
-   exitoso no aparecieron después en `list_memories`. Esto es un límite de
-   esta instancia (posible paginación o inconsistencia eventual), no algo que
-   una convención de contenido pueda arreglar — si necesitás confirmar que
-   algo específico quedó guardado, usá `search_memory` con esas palabras
-   antes de asumir que `list_memories` te muestra el panorama completo.
+- **Guarda tu texto exacto.** Nadie lo reescribe, lo parte ni lo descarta. Los embeddings solo sirven para buscar.
+- **Rechaza lo que no sirve, con el motivo** (el error empieza con «No se guardó: …»). Corrige y reintenta:
 
-**Qué significa esto para cómo escribir:**
+| Motivo | Ejemplo que se rechaza | Cómo corregirlo |
+|---|---|---|
+| Demasiado corta (menos de 25 caracteres) | `Evitar errores de carga` | Escribe qué pasa y qué hacer |
+| Parece un título (menos de 5 palabras) | `Alineación de Datos Intercompañía` | Convierte el título en la lección |
+| Solo un identificador | `OmniaPOS:aeae869` | Di qué significa ese commit o id |
+| Etiqueta o lista de temas | `Intereses en Vision, DevOps, Docker` | Escribe el hecho concreto |
+| Demasiado larga (más de 1500 caracteres) | un párrafo con tres temas | Una lección por llamada, o una nota |
+| Parece un secreto | `password: …`, `omnia_…`, una clave privada | Describe el hecho sin el valor |
 
-- Una llamada a `add_memories` = **una oración, un hecho**, lo más denso y
-  autocontenido posible. No mandes párrafos esperando que queden juntos.
-- Nombrá explícitamente los términos concretos (`Coolify`, `Traefik`,
-  `bash`, `PowerShell`, el nombre del error exacto) **dentro** de la oración
-  — es lo que la búsqueda semántica va a matchear después, no hay tags.
-- Si una lección tiene "regla + por qué + fix", probá primero comprimirla en
-  una sola oración conectada con `--` o `;`. Puede que igual salga partida en
-  2-3 filas, pero cada pedazo va a tener más contexto propio que si mandás
-  4 oraciones sueltas de entrada.
-- Si algo no se guarda (`results: []`), no lo dejes así — reformulalo como un
-  hecho/decisión concreta del equipo antes de darlo por perdido.
+- **No duplica.** Si ya hay una lección casi idéntica en ese espacio, responde `NONE` con la existente: no la repitas.
+- **Registra quién la escribió** y desde qué cliente MCP.
+- **Herramientas:** `add_memories`, `search_memory` (por significado), `list_memories` (de la más reciente a la más antigua;
+  ya es fiable), `delete_memory` (borra UNA de tu espacio) y `delete_all_memories` (solo administradores; nunca la uses).
 
-## Reglas de contenido (heredadas del prompt de Hermes)
+## Cómo escribir una buena lección
 
-Mismas reglas que ya impone `memory/hermes/lib/distill.mjs`, explícitas
-también para cuando un humano escribe directo:
+1. **Una idea por llamada**, en una o dos oraciones completas y autocontenidas. No mandes párrafos con varios temas.
+2. **Nombra lo concreto dentro de la oración:** la herramienta, el comando, el mensaje de error exacto, el servicio. No hay
+   etiquetas: la búsqueda por significado solo ve el texto.
+3. **Incluye el porqué o la regla**, no solo el síntoma: «X hace Y; por eso hay que Z».
+4. **Que se entienda sin contexto.** Quien la lea en tres meses no sabe de qué hablabas.
 
-- Nunca secretos, credenciales ni tokens.
-- Nunca datos de cliente en `omnia-memory-global`.
-- Tiene que seguir siendo útil dentro de ~3 meses — nada de ruido efímero
-  ("hoy no arrancó el build", "estuve viendo X") ni estado de una tarea en
-  curso.
-- No dupliques algo que ya está documentado en `vision/specs/` o en un
-  README del repo — referencialo, no lo repitas.
+| Mal | Bien |
+|---|---|
+| `Gotcha de Coolify con webhooks` | `Un push al repo dispara el webhook del recurso vision-infra, no el de memory-mem0: el Redeploy de memory-mem0 hay que darlo a mano.` |
+| `Bench restore no imprime progreso` | `En un bench restore de varios GB no se ve progreso en consola; para saber si avanza hay que mirar el crecimiento del volumen de la base.` |
+| `Evitar errores de carga` | `Antes de ejecutar un full-sync del catálogo hay que resolver el perfil POS activo, o la carga falla por falta de compañía.` |
+
+No hace falta empezar con «El equipo decidió…»: era un truco para el extractor anterior.
+
+## Reglas de contenido
+
+- **Nunca secretos, credenciales ni tokens.** El servicio rechaza los patrones obvios, pero no todos: la responsabilidad es de quien escribe.
+- **Nunca datos de clientes en `global`.** Lo de un cliente va en su espacio `int-` (interno) o `cli-` (compartido con él).
+- **Nunca datos personales de personas** (nombres de empleados o de clientes finales con su caso). La memoria no es un sistema de registros con garantía de borrado.
+- Tiene que seguir siendo útil dentro de ~3 meses: nada de ruido efímero («hoy no arrancó el build») ni estado de una tarea en curso (eso va al handoff).
+- No dupliques lo que ya está en `vision/specs/` o en el README del repo: referéncialo.
 
 ## Quién escribe, y cuándo
 
-- **Durante o justo después de resolver algo no obvio** (un incidente, un
-  ticket de otra área, un gotcha de infra) — ese es el momento, no "después
-  hago un resumen".
-- **Hermes** sigue destilando de forma automática (commits + handoffs) y
-  proponiendo — hoy vía PR (`memory/hermes/lib/propose.mjs`); ver el item de
-  Plane *"Memoria de equipo: pasar de flujo por PR a escritura directa por
-  commits"* para cuándo eso cambia. El prompt de `distill.mjs` ya pide
-  1-4 frases por propuesta — vale la pena revisarlo a la luz de este
-  hallazgo (frases cortas y densas, no párrafos) antes de que empiece a
-  escribir directo.
+- **Durante o justo después de resolver algo no obvio** (un incidente, un ticket de otra área, un gotcha): ese es el momento, no «luego hago un resumen».
+- La skill `memory-write` lo hace por ti: decide el espacio, redacta la lección, la guarda y verifica con `search_memory`.
+- **Hermes** destila automáticamente (commits + handoffs) y propone vía PR (`memory/hermes/lib/propose.mjs`). Sus propuestas
+  deben pasar el mismo filtro: oraciones completas con el dato concreto, no títulos.
 
-## Semilla real (2026-09-23)
+## Mantenimiento
 
-Primeras lecciones reales cargadas a `omnia-memory-global`, resultado de la
-sesión que armó el onboarding self-service — gotchas de Coolify/Traefik,
-interoperabilidad Windows/bash, y Vaultwarden. Quedaron fragmentadas en
-oraciones sueltas por el comportamiento descrito arriba; buscables por
-`search_memory` con las palabras clave de cada tema (`Coolify`, `Traefik`,
-`bash`, `Vaultwarden`, `SSH`).
+- **Borrar una lección equivocada o vieja:** `delete_memory` con su id (te lo da `list_memories` o `search_memory`), o un
+  administrador desde el portal (Grafo de memoria → clic en el punto → Borrar).
+- **Revisar el espacio de vez en cuando** en el portal (Grafo de memoria): los temas muestran qué abunda y qué se repite.
+- **Cuando una memoria crece hasta pedir estructura,** conviértela en una nota (ver [ESTRUCTURA-NOTAS.md](ESTRUCTURA-NOTAS.md)).

@@ -119,9 +119,10 @@ está en [`CONVENCION-DE-CONTENIDO.md`](CONVENCION-DE-CONTENIDO.md).
 
 ## Lo que conviene saber de cada memoria
 
-- **Mem0 parte tu texto en hechos sueltos** y a veces pierde la relación entre ellos.
-  Por eso: una oración, un hecho. Si sale `results: []`, no se guardó: reformúlalo
-  como decisión del equipo ("el equipo decidió…").
+- **Mem0 guarda tu texto exacto** (desde el 2026-10-02, sin IA al escribir). Una oración
+  completa, un hecho, con el dato concreto. Si responde «No se guardó: …», el motivo dice
+  qué corregir (muy corta, solo un título o un id, parece un secreto); `NONE` significa
+  que ya existía. Detalle en `CONVENCION-DE-CONTENIDO.md`.
 - **Basic Memory guarda la nota entera.** Úsala cuando importa el contexto completo.
 - **Las notas de Basic Memory tardan hasta 3 minutos** en llegar a GitHub y a Obsidian.
   Los agentes las ven al instante.

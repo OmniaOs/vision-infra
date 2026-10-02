@@ -1,6 +1,6 @@
 ---
 name: memory-write
-description: 'Guarda una lección operativa en la memoria compartida de Omnia (Mem0) siguiendo memory/CONVENCION-DE-CONTENIDO.md: decide el namespace (omnia-memory del proyecto vs. omnia-memory-global), redacta cada hecho como oración densa y como decisión del equipo (el formato que el extractor de Mem0 guarda de forma confiable), reintenta si add_memories devuelve resultados vacíos, y verifica con search_memory. Invocar durante o justo después de resolver algo no obvio — un incidente, un gotcha de infra, una decisión de equipo — nunca para estado efímero de una tarea en curso.'
+description: 'Guarda una lección operativa en la memoria compartida de Omnia (Mem0) siguiendo memory/CONVENCION-DE-CONTENIDO.md: decide el namespace (omnia-memory del proyecto vs. omnia-memory-global), redacta cada hecho como una oración completa y autocontenida con el dato concreto (el gateway guarda el texto exacto y rechaza lo demasiado corto, los títulos, los ids y los secretos), corrige y reintenta si add_memories lo rechaza, y verifica con search_memory. Invocar durante o justo después de resolver algo no obvio — un incidente, un gotcha de infra, una decisión de equipo — nunca para estado efímero de una tarea en curso.'
 ---
 
 # Memory Write
@@ -85,28 +85,26 @@ resolver a namespaces distintos:
    hechos separados desde acá en adelante, cada uno con su propia pasada
    por los Pasos 1-3.
 2. Si es una sola idea con "regla + por qué + cuándo aplica" conectada →
-   mantenla junta para el Paso 5, no la partas vos mismo — dejá que el
-   extractor de Mem0 decida si la fragmenta.
+   mantenla junta para el Paso 5 como una sola oración completa (el gateway
+   guarda el texto exacto y no la parte).
 
 ### Paso 5 — Redactar cada hecho antes de enviarlo
 
 Por cada hecho que llegó hasta acá:
 
-1. Reformúlalo como **decisión o hecho concreto del equipo**, nunca como
-   explicación técnica abstracta. Patrón: "El equipo decidió que...", "El
-   equipo registró que...", "El equipo acordó que...". Es una regla
-   empírica, no de estilo: la misma lección redactada como explicación
-   ("un túnel necesita X porque Y") devolvió `results: []` dos veces
-   seguidas contra el store real; redactada como decisión se guardó a la
-   primera.
+1. Redáctalo como **una oración completa y autocontenida** (de 5 palabras o
+   más y de al menos 25 caracteres) con el hecho concreto y su porqué o su
+   regla: "X hace Y; por eso hay que Z". Que se entienda sin contexto. El
+   gateway guarda el texto **exacto**: no hace falta empezar con "El equipo
+   decidió…" (era un truco para el extractor anterior). Nunca un título, un
+   id suelto, una etiqueta ni un secreto: se rechazan.
 2. Nombra explícitamente los términos concretos dentro de la oración
    misma — herramientas, comandos exactos, nombres de error, nombres de
    servicio. No existe tagging: lo único que la búsqueda semántica va a
    matchear después es texto dentro de la oración.
-3. Si el hecho tiene varias cláusulas conectadas, comprímelas en una sola
-   oración densa con `--` o `;` en vez de mandarlas como párrafo separado
-   por puntos — igual puede salir partida en 2-3 filas del lado de Mem0,
-   pero cada pedazo queda con más contexto propio.
+3. Una idea por llamada. Si el hecho tiene varias ideas, mándalas como
+   llamadas separadas (o conviértelo en una nota larga si tiene línea de
+   tiempo o causa + arreglo + pendientes).
 
 ### Paso 6 — Llamar `add_memories`
 
@@ -115,12 +113,11 @@ Por cada hecho redactado, en el namespace resuelto:
 1. Llama `add_memories` con el texto del Paso 5.
 2. Si `results` no está vacío → registra cada entrada devuelta (`id`,
    `memory`, `event`) como guardada. Sigue con el próximo hecho.
-3. **Servicio nuevo (desde 2026-10-02):** el gateway guarda el texto TAL CUAL, sin IA. Si responde con error `No se
+3. **Servicio actual (desde 2026-10-02):** el gateway guarda el texto TAL CUAL, sin IA. Si responde con error `No se
    guardó: <motivo>`, el motivo dice qué corregir (demasiado corta, solo un título o id, parece un secreto, demasiado
-   larga): corrige eso y reintenta una vez. Si responde `event: NONE`, ya existía una lección equivalente: no la repitas.
-   El resto de este paso (reformular con «El equipo decidió/registró…») solo aplica si el gateway sigue en el modo
-   antiguo (OpenMemory) y `results` viene vacío.
-4. Si `results` viene vacío (`[]`) en el modo antiguo:
+   larga): corrige eso y reintenta **una sola vez**. Si responde `event: NONE`, ya existía una lección equivalente:
+   no la repitas y trátala como guardada.
+4. Solo si el gateway sigue en el modo antiguo (OpenMemory; el portal lo indica en Espacios) y `results` viene vacío (`[]`):
    - No lo des por perdido. Si el texto enviado todavía no seguía el
      patrón "El equipo decidió/registró/acordó que..." al pie de la letra,
      reformúlalo así explícitamente.
@@ -207,10 +204,11 @@ corrido ahí) para guardarlo en el namespace correcto.
 ### Caso Especial 6 — No se guardó tras dos intentos
 
 ```markdown
-No se guardó el hecho #<n> tras 2 intentos (`results: []` ambas veces).
-Texto enviado en el último intento: "<texto>". Puede necesitar reescritura
-manual más agresiva, o simplemente no es el tipo de contenido que este
-extractor conserva.
+No se guardó el hecho #<n> tras 2 intentos.
+Motivo del último rechazo (o `results: []` si el gateway está en modo
+antiguo): "<motivo>". Texto enviado en el último intento: "<texto>". Puede
+necesitar reescritura manual más concreta, o no ser una lección corta (si
+tiene línea de tiempo o varias ideas, conviene una nota larga).
 ```
 
 ### Caso Especial 7 — Guardado según la API pero no verificable por búsqueda
