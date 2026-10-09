@@ -24,6 +24,8 @@
 //   GET    /api/admin/spaces                espacios que ya existen (para asignarlos a personas)
 //   GET    /api/admin/namespaces            namespaces de Mem0 con su conteo y a que espacio corresponden
 //   POST   /api/admin/memories/delete {space, ids}   borrar memorias de un espacio (admin; devuelve lo borrado)
+//   GET    /api/admin/memories?namespace=N&cursor=&limit=   una pagina de las memorias de un namespace (sin el tope de 500)
+//   POST   /api/admin/memories/move {from, to, ids}   pasar memorias de un namespace a otro conservando id y fecha
 //   GET    /api/admin/projects              proyectos de Basic Memory y a que espacio corresponden
 //   PUT    /api/admin/aliases {kind: 'mem0'|'kb', namespace, space}   asignar un namespace/proyecto antiguo a un espacio
 //   GET|PUT /api/admin/settings {enforce}   modo de permisos: bloquear o solo registrar
@@ -217,6 +219,22 @@ export function createPanelApi({
         try { r = await viewer.deleteMemories(actor, String(b.space), Array.isArray(b.ids) ? b.ids.map(String) : []); } catch { return send(502, { error: 'origen_no_disponible' }); }
         if (r.error) return send(r.status, { error: r.error });
         audit('borrar_memorias', String(b.space), { borradas: r.removed.length, ids: r.removed.map((x) => x.id) });
+        return send(200, r);
+      }
+      if (p === '/api/admin/memories' && req.method === 'GET') {
+        if (!viewer) return send(503, { error: 'sin_visor' });
+        let r;
+        try { r = await viewer.listPage(actor, url.searchParams.get('namespace'), url.searchParams.get('cursor'), url.searchParams.get('limit')); } catch { return send(502, { error: 'origen_no_disponible' }); }
+        if (r.error) return send(r.status, { error: r.error });
+        return send(200, r);
+      }
+      if (p === '/api/admin/memories/move' && req.method === 'POST') {
+        if (!viewer) return send(503, { error: 'sin_visor' });
+        const b = await readJson(req);
+        let r;
+        try { r = await viewer.moveMemories(actor, String(b.from), String(b.to), Array.isArray(b.ids) ? b.ids.map(String) : []); } catch { return send(502, { error: 'origen_no_disponible' }); }
+        if (r.error) return send(r.status, { error: r.error });
+        audit('mover_memorias', `${b.from}->${b.to}`, { movidas: r.moved.length, ids: r.moved.map((x) => x.id) });
         return send(200, r);
       }
       if (p === '/api/admin/projects' && req.method === 'GET') {

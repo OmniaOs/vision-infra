@@ -170,6 +170,19 @@ dejar nada a medias.
 Además, el selector de espacios de una persona ofrece primero los que ya existen, y al editar a alguien de `ACCESS_DEVS` pasa
 solo al portal conservando su token (solo `ACCESS_ADMINS` no se edita).
 
+### Ordenar memorias entre namespaces (solo admin, por API)
+
+Para corregir lo que quedó mal repartido (p. ej. un namespace que mezcla dos proyectos). Ambas operaciones trabajan sobre un
+**namespace** de Mem0, no sobre un espacio, y quedan en el registro de auditoría.
+
+- `GET /api/admin/memories?namespace=N&cursor=&limit=` devuelve una página (hasta 200) de las memorias de ese namespace con su
+  `id`, texto y fecha, más `next` para pedir la siguiente. No tiene el tope de 500 del visor ni de `list_memories`.
+- `POST /api/admin/memories/move {from, to, ids}` pasa hasta 200 memorias de un namespace a otro **conservando id, texto y
+  fecha** (solo cambia su `user_id` en Qdrant). El namespace de origen viaja siempre con los ids: un id que ya no está ahí no se
+  toca y cuenta como faltante. Es reversible: se mueve de vuelta con `from`/`to` invertidos.
+
+Haz un respaldo antes de mover o borrar en bloque (ver `backup/README.md`).
+
 ## Dar de alta a un dev (admin, ~1 minuto)
 
 ```bash

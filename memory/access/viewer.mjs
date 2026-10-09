@@ -198,6 +198,49 @@ export function createViewerApi({ routes, store, qdrantUrl, qdrantCollection, qd
     return { removed: points.map((p) => ({ id: String(p.id), content: String(p.payload?.data ?? '').slice(0, 300) })), missing: unique.length - points.length };
   }
 
+  // Operaciones de administracion sobre un namespace de Mem0 concreto (no un espacio): sirven para ordenar lo que quedo mal repartido.
+  const NS_ADMIN_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+  const qHeaders = () => ({ 'content-type': 'application/json', ...(qdrant.key ? { 'api-key': qdrant.key } : {}) });
+  const pointsUrl = () => `${qdrant.url}/collections/${encodeURIComponent(qdrant.collection)}/points`;
+
+  /** Una pagina de las memorias de UN namespace (admin), sin el tope del grafo: permite revisar espacios grandes. */
+  async function listPage(actor, namespace, cursor, limit) {
+    if (actor.role !== 'admin') return { error: 'solo_admin', status: 403 };
+    if (!NS_ADMIN_RE.test(namespace || '') || (cursor && !ID_RE.test(cursor))) return { error: 'invalido', status: 400 };
+    const size = Math.min(Math.max(Number(limit) || 100, 1), 200);
+    const r = await fetchImpl(`${pointsUrl()}/scroll`, {
+      method: 'POST', headers: qHeaders(), signal: AbortSignal.timeout(15000),
+      body: JSON.stringify({ filter: { must: [{ key: 'user_id', match: { value: namespace } }] }, limit: size, with_payload: true, with_vector: false, ...(cursor ? { offset: cursor } : {}) }),
+    });
+    if (!r.ok) throw new Error(`qdrant_http_${r.status}`);
+    const { result } = await r.json();
+    const memories = (result?.points || [])
+      .filter((p) => p.payload?.user_id === namespace && typeof p.payload?.data === 'string')
+      .map((p) => ({ id: String(p.id), content: p.payload.data, createdAt: p.payload.created_at ?? null }));
+    return { namespace, memories, next: result?.next_page_offset == null ? null : String(result.next_page_offset) };
+  }
+
+  /**
+   * Cambia memorias de un namespace a otro (admin), conservando su id, fecha y texto. El namespace de origen va siempre junto
+   * con los ids, asi un id de otro namespace no se toca. Devuelve { moved: [{id, content}], missing } o { error, status }.
+   */
+  async function moveMemories(actor, from, to, ids) {
+    if (actor.role !== 'admin') return { error: 'solo_admin', status: 403 };
+    if (!NS_ADMIN_RE.test(from || '') || !NS_ADMIN_RE.test(to || '') || from === to) return { error: 'invalido', status: 400 };
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > MAX_DELETE || !ids.every((id) => ID_RE.test(id))) return { error: 'invalido', status: 400 };
+    const unique = [...new Set(ids)];
+    const where = (list) => ({ must: [{ key: 'user_id', match: { value: from } }, { has_id: list }] });
+    const found = await fetchImpl(`${pointsUrl()}/scroll`, { method: 'POST', headers: qHeaders(), body: JSON.stringify({ filter: where(unique), limit: unique.length, with_payload: true, with_vector: false }), signal: AbortSignal.timeout(15000) });
+    if (!found.ok) throw new Error(`qdrant_http_${found.status}`);
+    const points = ((await found.json()).result?.points || []).filter((p) => p.payload?.user_id === from);
+    if (points.length === 0) return { moved: [], missing: unique.length };
+    const set = await fetchImpl(`${pointsUrl()}/payload?wait=true`, { method: 'POST', headers: qHeaders(), body: JSON.stringify({ payload: { user_id: to }, filter: where(points.map((p) => p.id)) }), signal: AbortSignal.timeout(15000) });
+    if (!set.ok) throw new Error(`qdrant_http_${set.status}`);
+    for (const ns of [from, to]) cache.delete(`g:${ns}`);
+    cache.delete('counts');
+    return { moved: points.map((p) => ({ id: String(p.id), content: String(p.payload?.data ?? '').slice(0, 300) })), missing: unique.length - points.length };
+  }
+
   async function graph(actor, res, space) {
     const namespace = resolveNamespace(actor, space);
     if (!namespace) return send(res, 404, { error: 'no_existe' });
@@ -272,5 +315,5 @@ export function createViewerApi({ routes, store, qdrantUrl, qdrantCollection, qd
     return true;
   }
 
-  return { handle, namespaceRows, projectRows, catalog, deleteMemories };
+  return { handle, namespaceRows, projectRows, catalog, deleteMemories, listPage, moveMemories };
 }
