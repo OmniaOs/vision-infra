@@ -42,7 +42,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     event.preventDefault()
     const cleaned = id.trim().toLowerCase()
     if (!USER_ID_PATTERN.test(cleaned)) return setFormError('2 a 32 caracteres: minúsculas, números, guiones.')
-    if (permissions.role === 'cliente' && permissions.spaces.length === 0) return setFormError('Un cliente necesita al menos un espacio cli-…')
+    if (permissions.role === 'cliente' && permissions.spaces.length === 0) return setFormError('Un cliente necesita al menos un espacio.')
     setFormError(undefined)
     createUser.mutate({ id: cleaned, ...permissions }, { onSuccess: setIssued })
   }

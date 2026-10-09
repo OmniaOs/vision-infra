@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion'
 import { FormField } from '@/shared/components/form-field'
-import type { SpaceKind } from '@/shared/domain/space-metadata'
 import type { UserRole } from '@/shared/types/user-role'
 import { SpacePicker } from './space-picker'
 import { UserRoleSelect } from './user-role-select'
@@ -12,13 +11,10 @@ interface UserPermissionsFieldsProps {
   onChange: (next: { role: UserRole; spaces: string[] }) => void
 }
 
-/** Rol + espacios. Los clientes solo admiten espacios de cliente y los administradores no necesitan espacios. */
+/** Rol + espacios. Los administradores no necesitan espacios; un cliente ve solo los que se le asignan, nunca el global. */
 export function UserPermissionsFields({ idPrefix, role, spaces, onChange }: UserPermissionsFieldsProps) {
-  const allowedKinds: SpaceKind[] = role === 'cliente' ? ['client'] : ['internal', 'project', 'client']
-
   const handleRoleChange = (nextRole: UserRole) => {
-    const kept = nextRole === 'admin' ? [] : nextRole === 'cliente' ? spaces.filter((space) => space.startsWith('cli-')) : spaces
-    onChange({ role: nextRole, spaces: kept })
+    onChange({ role: nextRole, spaces: nextRole === 'admin' ? [] : spaces })
   }
 
   return (
@@ -34,9 +30,9 @@ export function UserPermissionsFields({ idPrefix, role, spaces, onChange }: User
         <FormField
           label="Espacios"
           htmlFor={`${idPrefix}-space-name`}
-          hint={role === 'cliente' ? 'Un cliente solo puede tener espacios de cliente (cli-…).' : 'Además del espacio global, que ya tienen por defecto.'}
+          hint={role === 'cliente' ? 'Un cliente solo ve los espacios que le asignes aquí. Nunca ve el global.' : 'Además del espacio global, que ya tienen por defecto.'}
         >
-          <SpacePicker value={spaces} onChange={(next) => onChange({ role, spaces: next })} allowedKinds={allowedKinds} />
+          <SpacePicker value={spaces} onChange={(next) => onChange({ role, spaces: next })} />
         </FormField>
       )}
     </div>

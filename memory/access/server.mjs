@@ -18,7 +18,7 @@ import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { createStore, storeFromLegacy, hashToken } from './users.mjs';
-import { checkKbRpc, checkMem0Connect, checkMem0Rpc, parseRpc, spaceFromMem0 } from './policy.mjs';
+import { canonicalMem0Namespace, checkKbRpc, checkMem0Connect, checkMem0Rpc, parseRpc, spaceFromMem0 } from './policy.mjs';
 import { createPanelApi } from './panel.mjs';
 import { createAuth } from './auth.mjs';
 import { createViewerApi } from './viewer.mjs';
@@ -261,6 +261,10 @@ export function createGateway({
     if (/%2f|%5c/i.test(pathname)) return reply(res, 404, { error: 'not_found' });
 
     const isMem0 = route.name === 'mem0';
+    // Las dos formas de nombrar un espacio con alias (int-frutal / hr-omnia) llegan a los mismos datos.
+    const upstreamPath = isMem0
+      ? pathname.replace(/^(\/mcp\/[a-z0-9_-]{1,32}\/sse\/)([^/]+)/, (_, head, ns) => head + canonicalMem0Namespace(ns))
+      : pathname;
     const track = (space) => (sid) => {
       sessions.set(sid, {
         dev, tid: user.tokenId, kind: route.name, space, res, userSnapshot: true, role: user.role, spacesKey: JSON.stringify(user.spaces),
@@ -273,7 +277,7 @@ export function createGateway({
     if (user.role === 'admin') {
       if (!route.allow.some((p) => pathname.startsWith(p))) return reply(res, 404, { error: 'not_found' });
       const adminSse = req.method === 'GET' && (isMem0 ? /^\/mcp\/[a-z0-9_-]{1,32}\/sse\/[^/]+$/.test(pathname) : pathname === '/mcp');
-      return proxy(req, res, route, user, pathname + url.search, adminSse ? { onSession: track(null) } : {});
+      return proxy(req, res, route, user, upstreamPath + url.search, adminSse ? { onSession: track(null) } : {});
     }
 
     // ----- apertura de sesion SSE -----
@@ -284,7 +288,7 @@ export function createGateway({
         if (!decide(checkMem0Connect(user, sse[2]))) return;
         space = spaceFromMem0(sse[2]);
       }
-      return proxy(req, res, route, user, pathname + url.search, { onSession: track(space) });
+      return proxy(req, res, route, user, upstreamPath + url.search, { onSession: track(space) });
     }
 
     // ----- mensajes de una sesion -----
@@ -313,7 +317,7 @@ export function createGateway({
         const r = isMem0 ? checkMem0Rpc(user, session.space, parsed.msgs) : checkKbRpc(user, parsed.msgs);
         if (!decide(r)) return;
       }
-      return proxy(req, res, route, user, pathname + url.search, { body: raw });
+      return proxy(req, res, route, user, upstreamPath + url.search, { body: raw });
     }
 
     // ----- cualquier otra ruta -----

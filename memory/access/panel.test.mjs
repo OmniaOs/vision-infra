@@ -120,8 +120,10 @@ test('la API exige token y el rol correcto', async () => {
 
 let newToken;
 test('ALTA: la persona nueva funciona AL INSTANTE, sin redeploy ni reinicio', async () => {
-  const bad = await panel('POST', '/api/admin/users', ADM, { id: 'ana', role: 'cliente', spaces: ['int-frutal'] });
-  assert.equal(bad.status, 400, 'un cliente no puede tener espacios internos');
+  const noSpaces = await panel('POST', '/api/admin/users', ADM, { id: 'ana', role: 'cliente', spaces: [] });
+  assert.equal(noSpaces.status, 400, 'un cliente necesita al menos un espacio');
+  const noGlobal = await panel('POST', '/api/admin/users', ADM, { id: 'ana', role: 'cliente', spaces: ['global'] });
+  assert.equal(noGlobal.status, 400, 'el global nunca se asigna');
   const r = await panel('POST', '/api/admin/users', ADM, { id: 'ana', role: 'miembro', spaces: ['int-frutal'] });
   assert.equal(r.status, 201);
   newToken = r.body.token;

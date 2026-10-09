@@ -62,8 +62,15 @@ export const mem0Namespace = (space) => (space === 'global' ? 'omnia-global' : t
 export const spaceFromMem0 = (ns) => {
   if (ns === 'omnia-global') return 'global';
   if (toSpace.has(ns)) return toSpace.get(ns);
-  // Un espacio con alias solo se alcanza por su nombre antiguo: usar el nuevo abriria un namespace vacio y aparte.
-  return SPACE_RE.test(ns) && !toNamespace.has(ns) ? ns : null;
+  return SPACE_RE.test(ns) ? ns : null;
+};
+/**
+ * Namespace real de Mem0 al que hay que reenviar una conexion. El nombre propio de un espacio con alias
+ * (`int-frutal`) y su nombre antiguo (`hr-omnia`) llegan a los mismos datos; un nombre desconocido pasa igual.
+ */
+export const canonicalMem0Namespace = (ns) => {
+  const space = spaceFromMem0(ns);
+  return space ? mem0Namespace(space) : ns;
 };
 /** Basic Memory: el proyecto se llama igual que el espacio. */
 // Un proyecto pertenece a un espacio por su nombre o por un alias (varios proyectos pueden apuntar al mismo espacio).
@@ -81,9 +88,8 @@ export function validateUser(u) {
   for (const s of u.spaces) {
     if (!SPACE_RE.test(s)) return `espacio invalido: ${s}`;
     if (s === 'global') return 'global no se asigna: ya es implicito segun el rol';
-    if (u.role === 'cliente' && !s.startsWith('cli-')) return `un cliente solo puede tener espacios cli-: ${s}`;
   }
-  if (u.role === 'cliente' && u.spaces.length === 0) return 'un cliente necesita al menos un espacio cli-';
+  if (u.role === 'cliente' && u.spaces.length === 0) return 'un cliente necesita al menos un espacio';
   return null;
 }
 
@@ -95,7 +101,7 @@ export function access(user, space) {
   switch (user.role) {
     case 'miembro': return space === 'global' || assigned ? 'rw' : null;
     case 'lectura': return space === 'global' || assigned ? 'r' : null;
-    case 'cliente': return assigned && space.startsWith('cli-') ? 'rw' : null;
+    case 'cliente': return assigned ? 'rw' : null; // solo lo asignado: nunca el global, ni siquiera de lectura
     default: return null;
   }
 }

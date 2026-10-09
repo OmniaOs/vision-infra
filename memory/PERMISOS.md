@@ -71,8 +71,9 @@ Los repos hoy usan nombres antiguos (`frutal`, `omniapos`, `weritas`...). Activa
 Mem0 no renombra namespaces y volver a escribir las memorias las pasa otra vez por el extractor (puede alterarlas).
 En su lugar, `ACCESS_NAMESPACE_ALIASES=vision-infra=proy-vision-infra,frutal=int-frutal` hace que el gateway trate el
 namespace antiguo como ese espacio para los permisos y para el visor. Reglas: el destino debe ser `proy-`/`int-`/`cli-`;
-el nombre nuevo de un espacio con alias **no** se puede usar (abriría un namespace vacío y aparte); una configuración
-inválida impide arrancar. Los repos nuevos usan directamente el nombre con prefijo (skill `memory-setup`).
+el nombre propio de un espacio con alias (`int-frutal`) y su nombre antiguo (`hr-omnia`) **valen los dos** y llegan a los
+mismos datos: el gateway reenvía siempre al namespace real (corregido el 2026-10-09; antes el nombre nuevo daba 403
+`namespace_desconocido`); una configuración inválida impide arrancar. Los repos nuevos usan directamente el nombre con prefijo (skill `memory-setup`).
 
 ## Decisión del 2026-10-02: una sola instancia de Basic Memory
 
@@ -106,10 +107,15 @@ de prometer cifras grandes; para las primeras decenas de clientes no debería se
 | `admin` | Todo, incluido `delete_all_memories` y todos los espacios | — |
 | `miembro` | Leer y escribir `global` y los espacios que se le asignan | Espacios no asignados; borrado masivo |
 | `lectura` | Consultar `global` y los asignados | Escribir |
-| `cliente` | Leer y escribir **solo** su `cli-<cliente>` | Cualquier otro espacio, incluido `int-` |
+| `cliente` | Leer y escribir **solo** los espacios que se le asignan, del tipo que sean (`cli-`, `int-` o `proy-`), con herramientas mínimas de notas | El `global` (ni siquiera de lectura) y cualquier espacio no asignado |
 
 Un token = una persona = un rol + una lista de espacios. Ejemplo de entrada futura de `ACCESS_DEVS`:
-`ana:<hash>:miembro:int-frutal+proy-omniapos`, `contacto-frutal:<hash>:cliente:cli-frutal`.
+`ana:<hash>:miembro:int-frutal+proy-omniapos`, `contacto-frutal:<hash>:cliente:int-frutal`.
+
+> **Decisión del 2026-10-09:** a un cliente se le puede asignar cualquier espacio salvo `global`, incluso uno interno como
+> `int-frutal`, sin crear un `cli-<cliente>` aparte. Si el cliente va a ver un espacio, ese espacio no debe contener nada que
+> no quiera que vea. Un cliente **no** debe ser `miembro`: el miembro lee y escribe todo `global` y tiene todas las
+> herramientas de notas. Cambia a `cliente` a quien lo sea.
 
 ## Cómo se aplica en cada memoria
 

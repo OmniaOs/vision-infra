@@ -11,23 +11,22 @@ import { useSpaceCatalog } from '@/features/space-management/hooks/use-space-que
 interface SpacePickerProps {
   value: string[]
   onChange: (spaces: string[]) => void
-  allowedKinds: SpaceKind[]
 }
 
+const KINDS: SpaceKind[] = ['internal', 'project', 'client']
+
 /** Agrega espacios con el formato del servidor: tipo + nombre en minusculas con guiones. */
-export function SpacePicker({ value, onChange, allowedKinds }: SpacePickerProps) {
-  const [kind, setKind] = useState<SpaceKind>(allowedKinds[0])
+export function SpacePicker({ value, onChange }: SpacePickerProps) {
+  const [kind, setKind] = useState<SpaceKind>(KINDS[0])
   const [name, setName] = useState('')
   const [error, setError] = useState<string>()
-  const activeKind = allowedKinds.includes(kind) ? kind : allowedKinds[0]
   const { data: catalog = [] } = useSpaceCatalog()
-  // Solo los que aun no tiene y que su rol admite (un cliente solo puede tener espacios cli-).
-  const existing = catalog.filter((space) => space.id !== 'global' && !value.includes(space.id) && (allowedKinds.length > 1 || space.id.startsWith('cli-')))
+  const existing = catalog.filter((space) => space.id !== 'global' && !value.includes(space.id))
 
   const add = () => {
     const cleaned = name.trim().toLowerCase()
     if (!SPACE_NAME_PATTERN.test(cleaned)) return setError('Usa minúsculas, números y guiones. Ejemplo: frutal')
-    const space = buildSpace(activeKind, cleaned)
+    const space = buildSpace(kind, cleaned)
     if (value.includes(space)) return setError('Ese espacio ya está asignado.')
     onChange([...value, space])
     setName('')
@@ -57,12 +56,12 @@ export function SpacePicker({ value, onChange, allowedKinds }: SpacePickerProps)
         </Select>
       ) : null}
       <div className="flex gap-2">
-        <Select value={activeKind} onValueChange={(next) => setKind(next as SpaceKind)} disabled={allowedKinds.length === 1}>
+        <Select value={kind} onValueChange={(next) => setKind(next as SpaceKind)}>
           <SelectTrigger className="w-36 shrink-0" aria-label="Tipo de espacio">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {allowedKinds.map((allowed) => (
+            {KINDS.map((allowed) => (
               <SelectItem key={allowed} value={allowed}>
                 {SPACE_KIND_LABEL[allowed]}
               </SelectItem>

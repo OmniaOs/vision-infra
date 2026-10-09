@@ -23,7 +23,8 @@ test('parseUsers: rechaza lo invalido en vez de aceptar a nadie o a todos', () =
   assert.throws(() => parseUsers('ana:noeshash'), /linea invalida/);
   assert.throws(() => parseUsers(`ana:${H('a')}:jefe`), /rol invalido/);
   assert.throws(() => parseUsers(`ana:${H('a')}:miembro:Frutal`), /linea invalida|espacio invalido/);
-  assert.throws(() => parseUsers(`ce:${H('a')}:cliente:int-frutal`), /solo puede tener espacios cli-/);
+  assert.equal(parseUsers(`ce:${H('a')}:cliente:int-frutal`)[0].spaces[0], 'int-frutal', 'un cliente puede tener un espacio interno si se le asigna');
+  assert.throws(() => parseUsers(`ce:${H('a')}:cliente:global`), /global no se asigna/);
   assert.throws(() => parseUsers(`ce:${H('a')}:cliente`), /al menos un espacio/);
   assert.equal(parseUsers('').length, 0);
 });

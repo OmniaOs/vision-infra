@@ -25,7 +25,11 @@ test('acceso por rol y espacio', () => {
   assert.equal(access(leo, 'int-frutal'), 'r');
   assert.equal(access(cli, 'cli-frutal'), 'rw');
   assert.equal(access(cli, 'global'), null, 'el cliente no ve el global');
-  assert.equal(access(cli, 'int-frutal'), null, 'el cliente no ve lo interno');
+  assert.equal(access(cli, 'int-frutal'), null, 'el cliente solo ve lo que se le asigno');
+  const cliInterno = { role: 'cliente', spaces: ['int-frutal'] };
+  assert.equal(access(cliInterno, 'int-frutal'), 'rw', 'un cliente con un espacio interno asignado lo usa');
+  assert.equal(access(cliInterno, 'global'), null, 'y aun asi nunca ve el global');
+  assert.equal(access(cliInterno, 'cli-frutal'), null);
 });
 
 test('validacion de usuarios', () => {
@@ -33,8 +37,9 @@ test('validacion de usuarios', () => {
   assert.match(validateUser({ ...ana, role: 'jefe' }), /rol invalido/);
   assert.match(validateUser({ ...ana, spaces: ['Frutal'] }), /espacio invalido/);
   assert.match(validateUser({ ...ana, spaces: ['global'] }), /implicito/);
-  assert.match(validateUser({ ...cli, spaces: ['int-frutal'] }), /solo puede tener espacios cli-/);
+  assert.equal(validateUser({ ...cli, spaces: ['int-frutal'] }), null, 'un cliente puede tener cualquier espacio asignado, no solo cli-');
   assert.match(validateUser({ ...cli, spaces: [] }), /al menos un espacio/);
+  assert.match(validateUser({ ...cli, spaces: ['global'] }), /global no se asigna/);
   assert.match(validateUser({ ...ana, id: 'A B' }), /id invalido/);
 });
 

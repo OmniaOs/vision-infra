@@ -62,7 +62,7 @@ elige tu contraseña y entra. Calcula el hash en tu terminal, sin mostrar el tok
 | Administrador | Todo, incluidas altas, bajas y permisos |
 | Miembro | Leer y escribir en `global` y en sus espacios |
 | Solo lectura | Leer `global` y sus espacios |
-| Cliente | Leer y escribir solo en su `cli-…` (necesita al menos uno) |
+| Cliente | Leer y escribir solo en los espacios que le asignes, sean `cli-…` o internos como `int-frutal` (necesita al menos uno). Nunca ve `global`. **Usa este rol para toda persona de un cliente, no `miembro`.** |
 
 **Cambiar rol o espacios:** Personas → ⋯ → *Cambiar rol y espacios*. Se aplica al instante y corta sus conexiones abiertas
 para que se reabran con el permiso nuevo.
@@ -195,7 +195,7 @@ para `access`; `https://knowledge.omniaos.ai:8420` para `basic-memory`), y un 40
 
 - **Cada persona ve solo lo que su rol y sus espacios permiten, pero solo cuando el interruptor de permisos está en «bloqueando».**
   Mientras esté en «solo registrar», el gateway deja pasar y anota lo que bloquearía.
-- Los clientes tienen un conjunto mínimo de herramientas de notas y solo su `cli-…`. El aislamiento de las notas descansa en un
+- Los clientes tienen un conjunto mínimo de herramientas de notas y solo los espacios que les asignes (nunca el global; pueden ser `cli-…` o uno interno como `int-frutal`). El aislamiento de las notas descansa en un
   filtro del gateway (lista blanca + foto de versión), no en una separación física: por eso la versión de Basic Memory está fija.
 - `delete_all_memories` es solo de administradores. Una persona borra lecciones sueltas de su espacio con `delete_memory`.
 - **Los secretos nunca van en el chat.** Si pegas o ves un secreto expuesto, rótalo. Genera las contraseñas en tu terminal y

@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { createGateway, hashToken } from './server.mjs';
 import { createStore } from './users.mjs';
+import { configureNamespaceAliases } from './policy.mjs';
 
 const T = {
   ana: 'omnia_ana_token_0123456789abcdef', leo: 'omnia_leo_token_0123456789abcdef',
@@ -215,4 +216,31 @@ test('las sesiones de un admin tambien se pueden cortar (baja o cambio de rol)',
   const ended = [a, m].map((s) => new Promise((r) => { s.res.on('close', r); s.res.on('error', r); }));
   assert.equal(gw.closeSessions('adm'), 2);
   await Promise.all(ended);
+});
+
+test('un espacio con alias se alcanza por su nombre propio y por el antiguo, siempre sobre el mismo namespace', async () => {
+  try {
+    const { port } = await gateway(true, { aliasEnv: 'hr-omnia=int-frutal' });
+    for (const [token, name, who] of [[T.ana, 'int-frutal', 'miembro'], [T.ana, 'hr-omnia', 'miembro'], [T.adm, 'int-frutal', 'admin'], [T.adm, 'hr-omnia', 'admin']]) {
+      backendSeen.length = 0;
+      const s = await openSse(port, 'mem.test', `/mcp/claude/sse/${name}`, token);
+      assert.equal(s.status, 200, `${who} ${name}`);
+      assert.equal(backendSeen[0].url, '/mcp/claude/sse/hr-omnia', `${who} ${name} llega a los datos de siempre`);
+      s.close();
+    }
+    backendSeen.length = 0;
+    const g = await openSse(port, 'mem.test', '/mcp/claude/sse/global', T.adm);
+    assert.equal(backendSeen[0].url, '/mcp/claude/sse/omnia-global', 'global no abre un namespace aparte');
+    g.close();
+
+    const s = await openSse(port, 'mem.test', '/mcp/claude/sse/int-frutal', T.ana);
+    backendSeen.length = 0;
+    const r = await postRpc(port, 'mem.test', `/mcp/claude/sse/int-frutal/messages/?session_id=${s.sid}`, T.ana, tool('add_memories', { text: 'x' }));
+    assert.equal(r.status, 202);
+    assert.equal(backendSeen[0].url, `/mcp/claude/sse/hr-omnia/messages/?session_id=${s.sid}`);
+    s.close();
+
+    const ajeno = await openSse(port, 'mem.test', '/mcp/claude/sse/int-weritas', T.ana);
+    assert.equal(ajeno.status, 403, 'un espacio ajeno sigue cerrado');
+  } finally { configureNamespaceAliases(''); }
 });
