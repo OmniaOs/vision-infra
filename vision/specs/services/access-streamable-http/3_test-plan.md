@@ -45,7 +45,9 @@ correspondiente.
    `403` con la razón de `policy.mjs`; contador `0`.
 7. **Auditoría**: los casos 5 y 6 con `enforce: false` → respuesta del
    backend, `pol=would_deny:<razón>` y contador `would_deny` +1 exacto por
-   request. Cambiar el modo en caliente (store de alias) y repetir → `403`
+   request, incluido un `tools/call` Mem0 a espacio ajeno (una sola entrada
+   aunque fallen connect y rpc: tras la primera denegación se salta al paso 9).
+   Cambiar el modo en caliente (store de alias) y repetir → `403`
    sin upstream.
 8. **Batch**: `[]`, `[{...}]` y arreglo de 2 y de 50 mensajes → `400
    batch_no_soportado` en ambos modos, también para admin; contador `0`.
@@ -62,7 +64,8 @@ correspondiente.
     cabeceras definidas; ajeno → `403`; sin `Origin` → `204` con `Allow`;
     `OPTIONS /mcp/x` en `kb.test` → `404`. No consume rate limit; contador `0`.
 12. **Métodos**: `GET` y `DELETE /mcp/proy-vision-infra` en `memory.test` y
-    `DELETE /mcp` en `kb.test` → `405` con `Allow: POST, OPTIONS`.
+    `DELETE /mcp` en `kb.test` → `405` con `Allow: POST, OPTIONS`;
+    `GET /mcp/x` en `kb.test` → `404`.
 13. **Admin**: `tools/call` Mem0 desconocido → `403 herramienta_no_permitida`
     (enforcement); `delete_all_memories` y KB con cualquier `project` → `200`.
 14. **Saludo y correlación**: la fixture registra la secuencia `initialize`
@@ -82,6 +85,9 @@ correspondiente.
     SSE upstream queda cerrado.
 17. **Regresión SSE**: correr `server.test.mjs` sin modificación, incluido
     `GET /mcp` en `kb.*` y los POST de mensajes de Mem0 y KB.
+18. **Sin `params`**: `initialize`, `ping` y `tools/list` sin `params` pasan la
+    validación de estructura (los rechazos de política, si aplican, son los
+    mismos que por SSE); `params: 5` o `params: "x"` → `400 mensaje_invalido`.
 
 ## Ejecución
 
@@ -109,7 +115,7 @@ confirmar el alcance (AC-017): `policy.mjs`, `mcp-client.mjs` y
 | AC-006 | 6 |
 | AC-007 | 7 |
 | AC-008 | 8 |
-| AC-009 | 9 |
+| AC-009 | 9, 18 |
 | AC-010 | 10 |
 | AC-011 | 11 |
 | AC-012 | 12, 13 |

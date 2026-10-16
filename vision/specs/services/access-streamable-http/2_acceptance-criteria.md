@@ -76,12 +76,13 @@ el cuerpo definido en la spec, en ambos modos y sin upstream.
 ### AC-010 — Origin en POST
 
 **Given** `ACCESS_ALLOWED_ORIGINS=https://app.example`, **When** llega un POST
-con `Origin: https://evil.example` (con o sin Bearer), **Then** responde `403
-origin_no_permitido` sin cabeceras `Access-Control-*` y sin upstream. Con
-`Origin: https://app.example` la respuesta (también si es `401`) lleva
+con `Origin: https://evil.example` y token válido, **Then** responde `403
+origin_no_permitido` sin cabeceras `Access-Control-*` y sin upstream. Sin token
+(aunque el `Origin` sea ajeno) responde `401` primero: no revela el allowlist.
+Con `Origin: https://app.example` la respuesta (también si es `401`) lleva
 `Access-Control-Allow-Origin: https://app.example`, `Vary: Origin` y
 `Access-Control-Expose-Headers: WWW-Authenticate, Retry-After`. Sin `Origin`
-se atiende con el Bearer y lleva `Vary: Origin`. Nunca aparece `*` ni
+se atiende con el token y lleva `Vary: Origin`. Nunca aparece `*` ni
 `Access-Control-Allow-Credentials`.
 
 ### AC-011 — Preflight OPTIONS
@@ -128,9 +129,13 @@ upstream cerrado y un cuerpo sin Bearer, URL interna ni credenciales.
 
 ### AC-016 — SSE legado no cambia
 
-**Given** un cliente SSE existente de Mem0 o KB, **When** usa sus rutas
-actuales (incluido `GET /mcp` en `kb.*`), **Then** conserva su comportamiento.
-Las pruebas existentes de `server.test.mjs` pasan sin modificación.
+**Given** un cliente SSE existente de Mem0 o KB, **When** usa sus rutas SSE
+(`GET /mcp/<cliente>/sse/<ns>`, `POST /mcp/messages`,
+`POST /mcp/<cliente>/sse/<ns>/messages` en `memory.*`; `GET /mcp` y
+`POST /messages/` en `kb.*`), **Then** conserva su comportamiento. Las pruebas
+existentes de `server.test.mjs` pasan sin modificación. `POST /mcp/<espacio>`
+en `kb.*` no es ruta SSE de ningún cliente: su `404` es un cambio deliberado
+(ver §1 y AC-003), no una regresión.
 
 ### AC-017 — Alcance respetado
 

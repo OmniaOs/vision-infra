@@ -39,6 +39,8 @@ El host se resuelve como hoy (`routes.find((r) => r.hosts.includes(host))`).
 | `knowledge` | `/mcp` | `GET` | **No es del adaptador**: SSE legado, sin cambios |
 | `knowledge` | `/mcp` | otro | `405`, `Allow: POST, OPTIONS` |
 | `knowledge` | `^/mcp/.+` | `POST`, `OPTIONS` | `404 {"error":"not_found"}`, sin upstream |
+| `knowledge` | `^/mcp/.+` | `GET` | `404 {"error":"not_found"}`, sin upstream (no hay stream legado bajo `/mcp/...`) |
+| `knowledge` | `^/mcp/.+` | otro | `405`, `Allow: POST, OPTIONS` |
 
 Decisiones sobre hosts cruzados:
 
@@ -67,9 +69,12 @@ adaptador:
 
 1. `OPTIONS` → preflight (§3) y fin. No exige Bearer, no cuenta para rate limit
    ni para el límite de intentos fallidos, nunca abre upstream.
-2. `Origin` presente y fuera del allowlist (o `"null"`) → `403
+2. `POST` sin `Authorization: Bearer` válido → `401` del código común, antes de
+   evaluar `Origin`: un POST anónimo con `Origin` ajeno recibe `401`, no `403`,
+   para no revelar el allowlist a no autenticados.
+3. `POST` con token válido + `Origin` fuera del allowlist (o `"null"`) → `403
    {"error":"forbidden","reason":"origin_no_permitido"}` sin cabeceras CORS.
-3. Si `Origin` está permitido, se fijan con `res.setHeader` las cabeceras CORS
+4. Si `Origin` está permitido, se fijan con `res.setHeader` las cabeceras CORS
    de respuesta (§3) para que también acompañen a `401`/`429` emitidos por el
    código común. `Vary: Origin` se fija siempre.
 
@@ -79,7 +84,7 @@ adaptador:
 **Enganche B** — después del rate limit (línea 249) y de la comprobación
 `%2f|%5c` (línea 261), **antes de la rama de admin** (línea 277):
 
-4. Path/método: `404` para `kb.*` `/mcp/...`; `405` para métodos no `POST`.
+4. Path/método: `404` para `kb.*` `/mcp/...` (`POST`, `OPTIONS` y `GET`); `405` para el resto de métodos no permitidos (tabla de §1).
 5. `Content-Type` debe ser `application/json` (parámetros como `charset`
    permitidos, comparación sin mayúsculas) → si no, `415
    {"error":"unsupported_media_type"}`. `Accept` no se valida: la respuesta
@@ -96,9 +101,10 @@ Todos los pasos 1-8 terminan sin ninguna conexión upstream.
 
 **Allowlist.** Variable de entorno `ACCESS_ALLOWED_ORIGINS`: lista separada
 por comas de orígenes exactos `esquema://host[:puerto]` (sin ruta, sin barra
-final, sin comodines). El arranque la parsea, pasa a minúsculas y descarta con
-`AVISO` en stderr las entradas cuya `new URL(o).origin !== o` o que sean `*` o
-`null`. Se entrega a `createGateway({ allowedOrigins })` (por defecto vacío).
+final, sin comodines). El arranque la parsea entrada por entrada con `try/catch`:
+una entrada malformada se descarta con `AVISO` en stderr y nunca tumba el
+gateway. Pasa a minúsculas y descarta con `AVISO` las entradas cuya
+`new URL(o).origin !== o` o que sean `*` o `null`. Se entrega a `createGateway({ allowedOrigins })` (por defecto vacío).
 Vacía o ausente = ningún navegador permitido; los clientes sin `Origin`
 siguen funcionando. Comparación: igualdad exacta del header `Origin` en
 minúsculas contra la lista.
@@ -130,7 +136,7 @@ sin un único mensaje bien formado no hay `id` que correlacionar.
 | Arreglo en la raíz (vacío, 1 o más elementos) | `400 {"error":"invalid_rpc","reason":"batch_no_soportado"}` |
 | No es objeto, o `jsonrpc !== "2.0"` | `400 {"error":"invalid_rpc","reason":"mensaje_invalido"}` |
 | Sin `method` (respuesta del cliente con `result`/`error`) | `400 {"error":"invalid_rpc","reason":"respuesta_no_soportada"}` (no hay solicitud del servidor pendiente) |
-| `method` no es string no vacío, o `params` no es objeto/arreglo | `400 {"error":"invalid_rpc","reason":"mensaje_invalido"}` |
+| `method` no es string no vacío, o `params` presente y no es objeto/arreglo (`params` ausente es válido: `initialize`, `ping`, `tools/list` lo omiten) | `400 {"error":"invalid_rpc","reason":"mensaje_invalido"}` |
 | `id` presente y no es string ni número (incluido `null`) | `400 {"error":"invalid_rpc","reason":"id_invalido"}` |
 | `id` string que empieza por `omnia-init-` | `400 {"error":"invalid_rpc","reason":"id_reservado"}` |
 
@@ -152,7 +158,10 @@ entrada que esperan las funciones de política.
 permitido y conserva todas las restricciones de herramientas y argumentos.
 
 Las comprobaciones se evalúan en orden y la primera denegación fija la razón;
-por request se registra como máximo una entrada (`pol` y `noteWouldDeny`).
+por request se registra como máximo una entrada (`pol` y `noteWouldDeny`): tras
+la primera denegación en auditoría se salta directo al paso 9 sin más
+comprobaciones (así `checkMem0Connect` + `checkMem0Rpc` no generan dos
+entradas).
 
 **Modo de enforcement.** Se consulta `isEnforcing()` (`aliasStore.enforce`,
 inicializado con `ACCESS_ENFORCE === '1'`) en el momento de decidir, con el
@@ -162,7 +171,7 @@ cualquier conexión upstream:
 | Modo | Política deniega | Efecto |
 |---|---|---|
 | Enforcement | sí | `403 {"error":"forbidden","reason":"<razón>"}`, `pol=deny:<razón>`, cero conexiones upstream |
-| Auditoría | sí | `pol=would_deny:<razón>`, `noteWouldDeny({t, dev, route, reason})`; la request continúa al paso 9 como si estuviera permitida y la respuesta es la del upstream (la razón no se expone al cliente) |
+| Auditoría | sí | `pol=would_deny:<razón>`, `noteWouldDeny({t, dev, route, reason})`; la request continúa al paso 9 sin más comprobaciones, como si estuviera permitida, y la respuesta es la del upstream (la razón no se expone al cliente) |
 | Cualquiera | no | continúa al paso 9 |
 
 Así, para el mismo mensaje, Streamable HTTP y SSE dan el mismo resultado en
@@ -241,8 +250,8 @@ upstream con estado fuera de `2xx` o `endpoint` de otro origen → `502
 
 | Condición | Estado | Cuerpo | Antes de upstream |
 |---|---:|---|---|
+| Sin token o token inválido (se evalúa antes que `Origin` en `POST`) | 401 | `{"error":"unauthorized"}` + `WWW-Authenticate: Bearer` | sí |
 | `Origin` ajeno o `null` | 403 | `{"error":"forbidden","reason":"origin_no_permitido"}` | sí |
-| Bearer ausente/inválido | 401 | `{"error":"unauthorized"}` + `WWW-Authenticate: Bearer` | sí |
 | Intentos fallidos / rate limit | 429 | `{"error":"too_many_requests"}` + `Retry-After: 60` | sí |
 | `kb.*` `/mcp/...` | 404 | `{"error":"not_found"}` | sí |
 | Método no soportado | 405 | `{"error":"method_not_allowed"}` + `Allow: POST, OPTIONS` | sí |
@@ -270,7 +279,9 @@ Mem0 se trata como no autenticado por sí mismo: su aislamiento depende del
 gateway. KB conserva la lista blanca estricta porque sus argumentos y URLs
 pueden referir otros proyectos. El backend SSE responde `initialize` con la
 versión de protocolo que soporta (p. ej. `2024-11-05`); el adaptador la
-transmite tal cual al cliente.
+transmite tal cual al cliente solo cuando el cliente envió `initialize`
+(único caso con saludo real). En el resto de requests el saludo interno se
+descarta tras correlacionar y la versión del backend no se expone.
 
 ## 9. Configuración nueva
 

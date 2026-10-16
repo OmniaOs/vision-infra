@@ -88,7 +88,9 @@ rol, sin upstream; aunque `parseRpc` acepte hasta 50 mensajes.
 **G — Navegador.** Un `Origin` del allowlist (`ACCESS_ALLOWED_ORIGINS`) recibe
 preflight `OPTIONS` sin Bearer y cabeceras CORS con ese origen exacto y
 `Vary: Origin`; uno ajeno da `403` sin cabeceras CORS. Sin `Origin` (Claude
-Code, curl) se atiende con el Bearer.
+Code, curl) se atiende con el token. En `POST`, un `Origin` ajeno sin token
+válido da `401` (no `403`): la pertenencia al allowlist no se revela a no
+autenticados.
 
 **H — Admin.** Un admin pasa por el mismo flujo y las mismas funciones de
 `policy.mjs` (sin la rama de bypass del SSE); solo aplican las excepciones de
@@ -117,8 +119,9 @@ estructura y política y recibe `202` sin cuerpo; no abre upstream.
   y `x-omnia-dev`.
 - Autenticación, estructura y política se evalúan completas antes de abrir
   cualquier conexión upstream.
-- `Origin`, `401`, `400`, `413`, `415`, `404` y `405` no son política: se aplican
-  en cualquier modo de enforcement y para cualquier rol.
+- `Origin`, `401`, `400`, `413`, `415`, `404`, `405` y `429` (rate limit /
+  intentos) no son política: se aplican en cualquier modo de enforcement y
+  para cualquier rol.
 - Un `Origin` presente debe estar en el allowlist; nunca se refleja un origen
   arbitrario, nunca `*`, nunca credenciales CORS. `Origin` no sustituye al
   Bearer.
