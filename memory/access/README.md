@@ -256,8 +256,10 @@ con `project` por llamada). Piden `Content-Type: application/json` y
 
 Sin token: 401. Con token pero a un espacio no asignado: 403 cuando el
 bloqueo está activo (`ACCESS_ENFORCE=1` o desde el portal; en auditoría se
-registra como `would_deny` y sigue al upstream). Los métodos distintos de
-`POST` devuelven 405 y las notificaciones sin `id`, 202.
+registra como `would_deny` y sigue al upstream). `OPTIONS` hace preflight
+(204/403/404 según el caso), los demás métodos no permitidos devuelven 405
+(`GET /mcp` en `kb.*` sigue siendo el SSE legado) y las notificaciones sin
+`id`, 202.
 
 ## Qué no cubre (a propósito)
 
