@@ -24,6 +24,7 @@ import { createAuth } from './auth.mjs';
 import { createViewerApi } from './viewer.mjs';
 import { createAliasStore } from './aliases.mjs';
 import { createMemoryServer } from './memory-service.mjs';
+import { allowedOriginsFromEnv, streamableAfterAuth, streamableBeforeAuth } from './streamable.mjs';
 
 export { hashToken };
 
@@ -72,6 +73,7 @@ export function createGateway({
   devs, store, routes, enforce = false, rateLimitPerMin = 1200,
   setupDir = path.join(HERE, 'setup'), panelDir = path.join(HERE, 'panel'), memoryDomain, failedAuthPerMin = 30,
   portalFile, secureCookie = true, authOptions = {}, viewerOptions = {}, aliasFile, aliasEnv = '', kbAliasEnv = '', log = () => {},
+  allowedOrigins = [],
 }) {
   const users = store || storeFromLegacy(devs || new Map());
   const setupFiles = { '/setup': 'connect.ps1', '/setup.sh': 'connect.sh' };
@@ -231,6 +233,8 @@ export function createGateway({
       return panelApi.handle(req, res, url, actor, ctx);
     }
 
+    if (streamableBeforeAuth({ req, res, route, pathname, allowedOrigins })) return;
+
     const m = /^Bearer\s+(\S+)$/i.exec(req.headers.authorization || '');
     const user = (m && users.lookup(hashToken(m[1]))) || null;
     if (!user) {
@@ -259,6 +263,8 @@ export function createGateway({
     };
 
     if (/%2f|%5c/i.test(pathname)) return reply(res, 404, { error: 'not_found' });
+
+    if (await streamableAfterAuth({ req, res, route, pathname, user, decide, allowedOrigins })) return;
 
     const isMem0 = route.name === 'mem0';
     // Las dos formas de nombrar un espacio con alias (int-frutal / hr-omnia) llegan a los mismos datos.
@@ -446,6 +452,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const port = Number(process.env.PORT || 8080);
   createGateway({ store, routes, enforce, portalFile: process.env.ACCESS_PORTAL_FILE,
     aliasFile: process.env.ACCESS_ALIASES_FILE, aliasEnv: process.env.ACCESS_NAMESPACE_ALIASES, kbAliasEnv: process.env.ACCESS_PROJECT_ALIASES,
-    viewerOptions: { qdrantUrl: process.env.QDRANT_URL, qdrantCollection: process.env.QDRANT_COLLECTION, qdrantKey: process.env.QDRANT_API_KEY }, log: (e) => console.log(JSON.stringify(e)) })
+    viewerOptions: { qdrantUrl: process.env.QDRANT_URL, qdrantCollection: process.env.QDRANT_COLLECTION, qdrantKey: process.env.QDRANT_API_KEY }, log: (e) => console.log(JSON.stringify(e)),
+    allowedOrigins: allowedOriginsFromEnv(process.env.ACCESS_ALLOWED_ORIGINS) })
     .listen(port, () => console.error(`access gateway en :${port} (${store.size} usuarios)`));
 }
