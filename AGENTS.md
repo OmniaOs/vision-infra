@@ -33,3 +33,36 @@ Si no aparecen las herramientas `omnia-memory`, `omnia-memory-global` o `basic-m
 `401` = token mal copiado o revocado. `403` = ese espacio no está asignado a su cuenta (pedirlo al admin). Guía completa: nota «Manual del dev: conectarte a la memoria compartida» (proyecto `global`, carpeta `guias`) o `memory/MANUAL-DEV.md` en el repo `vision-infra`.
 Mientras no haya conexión, deja lo aprendido escrito en el resumen final para guardarlo después.
 <!-- omnia-memoria:fin -->
+
+## Qué es este repo
+
+Infraestructura compartida de Omnia (no de producto). Cada subcarpeta es
+un servicio desplegable en Coolify sobre un VPS. Los repos de trabajo
+(OmniaPOS, Frutal, Weritas) son consumidores de esta plataforma.
+
+- `memory/` — memoria compartida (Mem0/OpenMemory + gateway
+  `memory/access` + Basic Memory). Namespaces por proyecto + `omnia-global`.
+- `gateway/` — LiteLLM. `metrics-hub/` — leaderboard. `guardrails/`,
+  `telemetry/`, `vault/`, `infra/`, `proposals/` — otros servicios.
+- `docs/` — documentación general. `DEPLOY_COOLIFY.md` — guía de despliegue.
+- `vision/` — `constitution.md`, `backlog.md`, `specs/<area>/<feature>/`.
+
+## Convenciones
+
+- **Spec antes de código**: cada feature lleva su especificación completa
+  en `vision/specs/<area>/<feature>/` antes de implementarse.
+  Ver `vision/constitution.md`.
+- JavaScript ESM sin dependencias de runtime en los servicios (solo Node
+  22+). Tests con `node:test` junto al código (`*.test.mjs`).
+- Nombres y mensajes en español.
+- Nunca commitear secretos (tokens, hashes de auth, PATs). Los secrets
+  viven en Coolify, no en el repo.
+- Este repo despliega a **producción compartida** (Coolify/VPS): el código
+  y los tests se hacen en ramas, pero el redeploy lo hace una persona.
+
+## Verificación
+
+- Gateway de memoria: `node --test memory/access` desde la raíz del repo.
+- Typecheck/lint según cada servicio (ver su carpeta).
+- Tras cambios en `memory/access`, revisar `memory/access/README.md`
+  (sección Verificar) y `memory/PERMISOS.md` si cambió el control de acceso.
