@@ -123,6 +123,119 @@ El nombre del espacio va **escrito en el archivo**, nunca como variable de entor
 compartieran una variable, uno escribiría en la memoria del otro. En las notas, el proyecto lo eliges en cada llamada
 (`project: "<espacio>"`) y tiene que ser un espacio que tengas asignado.
 
+### Otros agentes: el mismo token por Streamable HTTP
+
+El gateway también expone MCP por Streamable HTTP: `POST /mcp/<espacio>` en `memory.omniaos.ai` (lecciones) y
+`POST /mcp` en `kb.omniaos.ai` (notas, con `project` por llamada). Todos los bloques usan la misma variable
+`OMNIA_MEMORY_TOKEN` del paso 1 y slugs reales de ejemplo (`int-frutal` para el proyecto, `omnia-global` para global).
+
+**Claude Code:** el bloque `type: "sse"` de arriba no cambia. Alternativa Streamable HTTP en el mismo `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "omnia-memory": {
+      "type": "http",
+      "url": "https://memory.omniaos.ai/mcp/int-frutal",
+      "headers": { "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}" }
+    },
+    "omnia-memory-global": {
+      "type": "http",
+      "url": "https://memory.omniaos.ai/mcp/omnia-global",
+      "headers": { "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}" }
+    }
+  }
+}
+```
+
+**Codex** (`~/.codex/config.toml`, transporte http):
+
+```toml
+[mcp_servers.omnia-memory]
+url = "https://memory.omniaos.ai/mcp/int-frutal"
+bearer_token_env_var = "OMNIA_MEMORY_TOKEN"
+
+[mcp_servers.omnia-memory-global]
+url = "https://memory.omniaos.ai/mcp/omnia-global"
+bearer_token_env_var = "OMNIA_MEMORY_TOKEN"
+```
+
+**Muse** (`settings.json`, transporte `streamable-http`):
+
+```json
+{
+  "mcpServers": {
+    "omnia-memory": {
+      "type": "streamable-http",
+      "url": "https://memory.omniaos.ai/mcp/int-frutal",
+      "headers": { "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}" }
+    },
+    "omnia-memory-global": {
+      "type": "streamable-http",
+      "url": "https://memory.omniaos.ai/mcp/omnia-global",
+      "headers": { "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}" }
+    }
+  }
+}
+```
+
+**Gemini CLI** (`~/.gemini/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "omnia-memory": {
+      "httpUrl": "https://memory.omniaos.ai/mcp/int-frutal",
+      "headers": { "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}" }
+    },
+    "omnia-memory-global": {
+      "httpUrl": "https://memory.omniaos.ai/mcp/omnia-global",
+      "headers": { "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}" }
+    }
+  }
+}
+```
+
+**OpenCode** (`opencode.json`, servidor `remote` por http):
+
+```json
+{
+  "mcp": [
+    {
+      "type": "remote",
+      "url": "https://memory.omniaos.ai/mcp/int-frutal",
+      "headers": { "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}" }
+    },
+    {
+      "type": "remote",
+      "url": "https://memory.omniaos.ai/mcp/omnia-global",
+      "headers": { "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}" }
+    }
+  ]
+}
+```
+
+**Kimi Code** (`~/.kimi-code/mcp.json`, solo `url`, sin `transport` para HTTP):
+
+```json
+{
+  "mcpServers": {
+    "omnia-memory": {
+      "url": "https://memory.omniaos.ai/mcp/int-frutal",
+      "headers": { "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}" }
+    },
+    "omnia-memory-global": {
+      "url": "https://memory.omniaos.ai/mcp/omnia-global",
+      "headers": { "Authorization": "Bearer ${OMNIA_MEMORY_TOKEN}" }
+    }
+  }
+}
+```
+
+Para las **notas** en cualquiera de los seis, la URL es siempre `https://kb.omniaos.ai/mcp` con el mismo Bearer,
+y el espacio se elige por llamada (`project: "int-frutal"` u `"omnia-global"`). Sin token el gateway devuelve 401;
+a un espacio no asignado, 403 (ver «Si algo falla»).
+
 ## Paso 4: comprobar que funciona
 
 Pídele a Claude:

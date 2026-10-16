@@ -231,6 +231,36 @@ token es global de la máquina; el slug va en el `.mcp.json` de cada repo.
    Y desde Claude Code con el token puesto: `omnia-memory` y `basic-memory`
    conectan, y un `add_memories` + `search_memory` devuelve lo escrito.
 
+### Verificar el endpoint Streamable HTTP
+
+El mismo gateway expone MCP por Streamable HTTP (código: `streamable.mjs`,
+cobertura en `streamable.test.mjs`): `POST /mcp/<espacio>` en
+`memory.omniaos.ai` (Mem0) y `POST /mcp` en `kb.omniaos.ai` (Basic Memory,
+con `project` por llamada). Piden `Content-Type: application/json` y
+`Authorization: Bearer $T` (mismo `$T` de los curl de arriba):
+
+   ```bash
+   curl -s -H "Authorization: Bearer $T" -H 'Content-Type: application/json' \
+     -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"curl","version":"1"}}}' \
+     https://memory.omniaos.ai/mcp/int-frutal    # 200, responde con el mismo id
+   curl -s -H "Authorization: Bearer $T" -H 'Content-Type: application/json' \
+     -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"curl","version":"1"}}}' \
+     https://kb.omniaos.ai/mcp                    # 200
+   curl -s -o /dev/null -w "%{http_code}\n" -H 'Content-Type: application/json' \
+     -d '{"jsonrpc":"2.0","id":1,"method":"ping"}' \
+     https://memory.omniaos.ai/mcp/int-frutal    # 401 sin token
+   curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer $T" -H 'Content-Type: application/json' \
+     -d '{"jsonrpc":"2.0","id":1,"method":"ping"}' \
+     https://memory.omniaos.ai/mcp/int-otro      # 403 a espacio ajeno
+   ```
+
+Sin token: 401. Con token pero a un espacio no asignado: 403 cuando el
+bloqueo está activo (`ACCESS_ENFORCE=1` o desde el portal; en auditoría se
+registra como `would_deny` y sigue al upstream). `OPTIONS` hace preflight
+(204/403/404 según el caso), los demás métodos no permitidos devuelven 405
+(`GET /mcp` en `kb.*` sigue siendo el SSE legado) y las notificaciones sin
+`id`, 202.
+
 ## Qué no cubre (a propósito)
 
 - **Aislamiento entre devs:** todos los devs ven todos los namespaces, igual que
