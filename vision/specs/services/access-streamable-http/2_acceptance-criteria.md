@@ -42,7 +42,8 @@ no basta haber validado la ruta o el token.
 
 **Given** una solicitud con `Origin` ajeno al allowlist, **When** llega a
 cualquiera de los POST, **Then** responde `403` antes de contactar upstream.
-Un origen permitido conserva únicamente los headers CORS configurados.
+Un `Origin` permitido conserva únicamente los headers CORS configurados y un
+`Origin` ausente (cliente de terminal) se admite con el mismo Bearer válido.
 
 ### AC-007 — Notificaciones devuelven 202
 

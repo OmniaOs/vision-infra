@@ -17,9 +17,11 @@ efímera por request usando el mismo ciclo ya probado en `mcp-client.mjs`:
 
 1. Abrir GET SSE autenticado hacia el backend interno.
 2. Esperar el evento `endpoint`.
-3. Enviar el JSON-RPC por POST al endpoint anunciado.
-4. Para requests con `id`, esperar el evento de respuesta con el mismo `id`.
-5. Cerrar/abortar SSE y devolver esa única respuesta JSON.
+3. Hacer el saludo MCP upstream (`initialize` + `notifications/initialized`)
+   como ya hace `mcp-client.mjs`.
+4. Enviar el JSON-RPC del cliente por POST al endpoint anunciado.
+5. Para requests con `id`, esperar el evento de respuesta con el mismo `id`.
+6. Cerrar/abortar SSE y devolver esa única respuesta JSON.
 
 Nunca se entrega el stream upstream al cliente ni se conserva la sesión.
 
@@ -30,11 +32,12 @@ Nunca se entrega el stream upstream al cliente ni se conserva la sesión.
 | `/mcp/<espacio>` | POST | Mem0; `<espacio>` es namespace/alias válido. |
 | `/mcp` | POST | Basic Memory; el proyecto se toma solo del JSON-RPC validado. |
 
-Headers requeridos: `Authorization: Bearer <token-dev>`,
-`Content-Type: application/json` y un `Origin` que pertenezca al allowlist
-explícito configurado para access. Una `Origin` ausente se rechaza. No se
-refleja un origen arbitrario ni se conceden credenciales CORS a orígenes no
-permitidos.
+Headers requeridos: `Authorization: Bearer <token-dev>` y
+`Content-Type: application/json`. Si el request trae `Origin` (cliente de
+navegador), debe pertenecer al allowlist explícito configurado para access; un
+origen ajeno se rechaza con `403`. Un `Origin` ausente se admite porque los
+clientes MCP de terminal no lo envían y el Bearer ya autentica. No se refleja
+un origen arbitrario ni se conceden credenciales CORS a orígenes no permitidos.
 
 El cuerpo es un objeto JSON-RPC 2.0 único; se conserva el límite de cuerpo del
 gateway. Las solicitudes con `id` devuelven `200 application/json` con la

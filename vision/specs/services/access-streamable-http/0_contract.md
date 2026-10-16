@@ -65,8 +65,10 @@ reenvía; el cliente recibe `202` y no espera un resultado JSON-RPC.
 - La autorización y `policy.mjs` se ejecutan en cada POST, antes de crear la
   sesión upstream, incluso para administradores donde corresponda la política
   de rutas.
-- Un `Origin` ausente o fuera del allowlist configurado se rechaza; no se usa
-  `Origin` como sustituto del Bearer.
+- Un `Origin` presente debe pertenecer al allowlist configurado; uno ajeno se
+  rechaza. Un `Origin` ausente (clientes de terminal como Claude Code o curl,
+  que no envían ese header) se admite porque el Bearer ya autentica; `Origin`
+  nunca sustituye al Bearer.
 - Los errores de autenticación, origen, cuerpo/JSON-RPC inválido, política y
   backend se expresan como respuestas JSON sin filtrar secretos internos.
 

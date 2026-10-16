@@ -29,8 +29,8 @@ que los rechazos ocurren antes del backend.
 3. Sin token y token inválido: ambos destinos dan `401` y contador upstream 0.
 4. Mem0 de otro espacio y KB de otro `project`: dan `403`, razón de policy y
    contador upstream 0. Repetir para token de solo lectura que intenta escribir.
-5. Origin permitido pasa; Origin ajeno o ausente da `403` y contador upstream
-   0.
+5. Origin permitido pasa; Origin ajeno da `403` y contador upstream 0; sin
+   header Origin (cliente de terminal) también pasa con Bearer válido.
 6. Una notificación permitida sin `id` devuelve `202`, provoca un solo POST
    upstream y no espera evento de respuesta. Una notificación denegada da 403.
 7. JSON inválido, JSON-RPC inválido y cuerpo que excede el límite dan 400/413
